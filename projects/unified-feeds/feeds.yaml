@@ -1,0 +1,8 @@
+channel_
+- name: civicpatch
+  feeds:
+    - type: "commit_event"
+      url: https://github.com/CivicPatch/civicpatch-tools/commits.atom
+- name: unified-feeds
+  feeds:
+    - type: "commit_event"
