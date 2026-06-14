@@ -1,4 +1,3 @@
-channel_
 - name: civicpatch
   feeds:
     - type: "commit_event"
@@ -6,3 +5,4 @@ channel_
 - name: unified-feeds
   feeds:
     - type: "commit_event"
+      url: https://github.com/CivicPatch/community/commits/main/projects/unified-feeds.atom

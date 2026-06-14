@@ -8,3 +8,13 @@ pre-commit = "4.6.0"
 run = """
 pre-commit install
 """
+
+[tasks.feeds]
+run = """
+uv run xxx
+"""
+
+[tasks.build-home]
+# Also include everything necessary to build-home
+run = """
+"""
