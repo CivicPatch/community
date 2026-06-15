@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
+from enum import Enum
 import feedparser
 import yaml
 
@@ -9,14 +10,31 @@ FEEDS_FILE = os.getenv(
     Path(__file__).parent.parent / "feeds.yaml"
 )
 
+class FeedType(str, Enum):
+    commit_event = "commit_event"
+
+class Feed(BaseModel):
+    type: FeedType
+    url: HttpUrl
+
 class Project(BaseModel):
-    pass
+    name: str
+    feeds: list[Feed]
 
 class FeedEvent(BaseModel):
     pass
 
+class ProjectWithEvents(BaseModel):
+    name: str
+    events: list[FeedEvent]
+
 def get_projects() -> list[Project]:
-    pass
+    with open(FEEDS_FILE) as f:
+        feeds_list: list[object] = yaml.safe_load(f)
+    projects = [Project.model_validate(item) for item in feeds_list]
+    return projects
+
+
 
 def fetch_feed_events(projects: list[Project]):
     pass
