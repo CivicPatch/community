@@ -15,6 +15,12 @@
   --accent: #c2401c;
   --accent-ink: #ffffff; /* text sitting on the accent */
 
+  /* cohesive palette slots — vermillion anchor + harmonizing hues */
+  --color-1: #c2401c; /* terracotta (same family as --accent) */
+  --color-2: #2f7d4f; /* pine */
+  --color-3: #2f57c9; /* indigo */
+  --color-4: #9a6a1f; /* ochre */
+
   /* lets details/summary animate open to natural height */
   interpolate-size: allow-keywords;
 }
@@ -29,6 +35,12 @@
     --line-soft: #2c2d35;
     --accent: #f2754a;
     --accent-ink: #16171d;
+
+    /* lighter for contrast on dark bg */
+    --color-1: #f2754a;
+    --color-2: #6cc28d;
+    --color-3: #88a6ff;
+    --color-4: #e0b25c;
   }
 }
 
@@ -97,7 +109,7 @@ summary {
   cursor: pointer;
   display: flex;
   gap: 0.7rem;
-  padding: 1.05rem 0.15rem;
+  padding: 0.5rem 0.15rem;
   transition: background-color 0.12s ease, padding-inline 0.12s ease;
 }
 summary::-webkit-details-marker {
@@ -176,30 +188,107 @@ details[open]::details-content {
   counter-reset: row;
 }
 
-/* numbered manifest rows: [01] title ............ date */
 .entry {
   counter-increment: row;
   display: grid;
-  grid-template-columns: 2.6rem 1fr auto;
-  align-items: baseline;
+  grid-template-columns: 2.6rem 3rem 1fr auto;
+  align-items: center;
   gap: 0.9rem;
   padding: 0.42rem 0.6rem;
   font-family: var(--font-family-monospace);
   transition: background-color 0.1s ease, color 0.1s ease;
 }
 .entry::before {
+  grid-column: 1;
   content: counter(row, decimal-leading-zero);
   color: var(--ink-soft);
   font-size: 0.8rem;
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
 }
+.entry img {
+  grid-column: 2;
+  width: 3rem;
+  height: 3rem;
+  object-fit: contain;
+  align-self: center;
+  flex-shrink: 0;
+}
+.entry a {
+  grid-column: 3;
+}
+.entry time {
+  grid-column: 4;
+}
 
 .entry a {
   color: var(--ink);
   text-decoration: none;
+  text-underline-offset: 3px;
   font-size: 1rem;
   line-height: 1.5;
+}
+.entry a:hover {
+  text-decoration: underline;
+}
+
+.topic {
+  padding: 0.3rem;
+}
+
+/* keyboard focus ring for every link in the widget */
+.topic a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* cute lil metadata table */
+.topic-meta {
+  /* mix toward transparent so the border darkens against whatever is
+     behind it — normal bg or the accent-tinted hover state */
+  --meta-line: color-mix(in srgb, var(--ink) 24%, transparent);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 0;
+  margin: 0 0 0.6rem;
+  width: fit-content;
+  max-width: 100%;
+  font-family: var(--font-family-monospace);
+  font-size: 0.8rem;
+  border: 1px solid var(--meta-line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.topic-meta dt,
+.topic-meta dd {
+  padding: 0.3rem 0.7rem;
+  border-top: 1px solid var(--meta-line);
+}
+.topic-meta dt:first-of-type,
+.topic-meta dt:first-of-type + dd {
+  border-top: 0;
+}
+.topic-meta dt {
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-right: 1px solid var(--meta-line);
+  background-color: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.topic-meta dd {
+  margin: 0;
+  color: var(--ink);
+}
+.topic-meta a {
+  color: var(--accent);
+  text-decoration: none;
+  text-underline-offset: 3px;
+  word-break: break-all;
+}
+.topic-meta a:hover {
+  text-decoration: underline;
 }
 
 .entry time {
@@ -210,7 +299,15 @@ details[open]::details-content {
   font-variant-numeric: tabular-nums;
 }
 
-/* brutalist invert on hover — whole row flips to the accent */
+/* soft region highlight for the whole topic on hover */
+.topic {
+  transition: background-color 0.12s ease;
+}
+.topic:hover {
+  background-color: color-mix(in srgb, var(--accent) 8%, var(--bg));
+}
+
+/* stronger highlight on the specific entry under the cursor */
 .entry:hover {
   background-color: var(--accent);
 }
@@ -227,4 +324,11 @@ details[open]::details-content {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+span.topic-type-project {
+  font-size: 1rem;
+  padding: 0.2rem;
+  color: var(--color-2);
+  background-color: color-mix(in srgb, var(--color-2) 14%, transparent);
 }

@@ -1,5 +1,7 @@
 import { html } from 'lit';
 import { component, useEffect, useState } from 'haunted';
+import DOMPurify from 'dompurify'
+import { unsafeHTML } from 'lit/directives/unsafe-html.js'
 
 type FeedType = 'discussion_event' | 'commit_event'
 type TopicType = 'project' 
@@ -14,6 +16,7 @@ interface FeedEntry {
 }
 
 interface Topic {
+  display_name?: string | null
   type?: TopicType | null
   url?: string | null
   description?: string | null
@@ -69,21 +72,17 @@ const TopicList = (
     return html`
         <header class="ledger-head">
             <span class="ledger-title">Feeds</span>
-            <span class="ledger-meta">
-                ${Object.keys(topics)} ${Object.keys(topics).length === 1 ? 'topic' : 'topics'}
-            </span>
         </header>
         <ul class="topics">
             ${topicGroups.map((topicGroup: any) => { 
                 const topic: any = topics[topicGroup["name"]];
-                console.log("what is", topic)
                 return html`
                 <li class="topic">
                     <details name="topics">
                         <summary>
                             <section>
                                 <span class="marker" aria-hidden="true"></span>
-                                <h2>${topic.name}</h2>
+                                <h2><span class="topic-type-${topic.type}">${topic.type}</span> ${topic.display_name ?? topic.name}</h2>
                                 <time class="timestamp" datetime=${topicGroup.entries[0].updated}>
                                     ${topicGroup.entries[0].updated.slice(0, 10)}
                                 </time>
@@ -94,12 +93,24 @@ const TopicList = (
                                 }
                             </section>
                         </summary>
-                        
+                        <dl class="topic-meta">
+                            ${topic.url ? html`
+                                <dt>link</dt>
+                                <dd>
+                                    <a href=${topic.url} target="_blank" rel="noopener">
+                                        ${topic.url}
+                                    </a>
+                                </dd>
+                            ` : ''}
+                        </dl>
                         <ol class="entries">
                             ${topicGroup.entries.map((entry: any) => html`
                                 <li class="entry">
+                                    ${entry.image &&
+                                        html`<img src="${entry.image}">`
+                                    }
                                     <a href=${entry.link} target="_blank" rel="noopener">
-                                        ${entry.title}
+                                        ${unsafeHTML(DOMPurify.sanitize(entry.title))}
                                     </a>
                                     <time datetime=${entry.updated}>
                                         ${entry.updated.slice(0, 10)}

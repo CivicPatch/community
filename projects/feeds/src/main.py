@@ -1,12 +1,15 @@
 import os
 from pathlib import Path
-from typing import cast, Optional
+from typing import cast, Any
 from pydantic import BaseModel, HttpUrl
 from enum import Enum
 import httpx
 from datetime import datetime 
-import yaml
 
+import yaml
+from email.utils import parsedate_to_datetime
+import nh3
+from pprint import pprint
 import feedparser 
 
 FEEDS_FILE = os.getenv(
@@ -34,7 +37,15 @@ class Topic(BaseModel):
     url: str | None = None
     description: str | None = None
     name: str
+    display_name: str | None = None
     feeds: list[Feed]
+
+class RssEntry(BaseModel):
+    id: str
+    summary: str
+    link: str
+    published: str
+    image: str | None = None
 
 class FeedEntry(BaseModel):
     name: str
@@ -43,6 +54,7 @@ class FeedEntry(BaseModel):
     title: str
     link: str
     updated: datetime
+    image: str | None = None
 
 class Output(BaseModel):
     topics: dict[str, Topic]
@@ -59,11 +71,40 @@ def get_topics() -> dict[str, Topic]:
     }
     return topics_by_name
 
+def format_rss(entry: object):
+    rss_entry = RssEntry.model_validate(entry)
+
+    return {
+        "id": rss_entry.id,
+        "title": nh3.clean(rss_entry.summary),
+        "link": rss_entry.link,
+        "updated": parsedate_to_datetime(rss_entry.published)
+    }
+
+def get_feed_extension(url: str) -> str:
+    return url.split(".")[-1]
+
 def fetch_feed_entries(name: str, feed_type: FeedType, url: str):
     response = httpx.get(url)
     parsed = feedparser.parse(response.content)  # pyright: ignore[reportUnknownMemberType]
+    feed = cast(dict[str, Any], parsed.feed)
+    pprint(feed)
     entries = cast(list[dict[str, object]], parsed.entries)
-    entries = [FeedEntry.model_validate({**entry, "name": name, "type": feed_type}) for entry in entries]
+
+    feed_extension = get_feed_extension(url)
+    if feed_extension == "rss":
+        entries = [format_rss(entry)
+            for entry in entries]
+    feed_image = feed.get("image") or {}
+    image: str | None = feed_image.get("href")
+
+
+    entries = [FeedEntry.model_validate({
+        **entry, 
+        "name": name, 
+        "type": feed_type,
+        "image": image
+    }) for entry in entries]
 
     return entries
 
