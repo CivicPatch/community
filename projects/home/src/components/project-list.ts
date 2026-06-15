@@ -2,7 +2,8 @@ import { html } from 'lit';
 import { component, useEffect, useState } from 'haunted';
 
 
-const ProjectList = () => {
+const ProjectList = (
+    { 'feed-url': feedUrl = 'entries.json' }) => {
     const [projects, setProjects] = useState([])
 
     useEffect(() => {
@@ -32,35 +33,43 @@ const ProjectList = () => {
     }
 
     const fetchProjectFeedEntries = async () => {
-        const response = await fetch('entries.json')
+        const response = await fetch(feedUrl)
         const data = await response.json()
         console.log(data)
 
         return entriesByProject(data.entries);
     }
 
-
     return html`
+        <header class="ledger-head">
+            <span class="ledger-title">Feeds</span>
+            <span class="ledger-meta">
+                ${projects.length} ${projects.length === 1 ? 'project' : 'projects'}
+            </span>
+        </header>
         <ul class="projects">
             ${projects.map((project: any) => html`
                 <li class="project">
                     <details name="projects">
                         <summary>
+                            <span class="marker" aria-hidden="true"></span>
                             <h2>${project.project_name}</h2>
-                            <span class="count">${project.entries.length}</span>
+                            <time class="timestamp" datetime=${project.entries[0].updated}>
+                                ${project.entries[0].updated.slice(0, 10)}
+                            </time>
                         </summary>
-                        <ul class="entries">
+                        <ol class="entries">
                             ${project.entries.map((entry: any) => html`
                                 <li class="entry">
                                     <a href=${entry.link} target="_blank" rel="noopener">
                                         ${entry.title}
                                     </a>
                                     <time datetime=${entry.updated}>
-                                        ${new Date(entry.updated).toLocaleDateString()}
+                                        ${entry.updated.slice(0, 10)}
                                     </time>
                                 </li>
                             `)}
-                        </ul>
+                        </ol>
                     </details>
                 </li>
             `)}
@@ -68,4 +77,4 @@ const ProjectList = () => {
     `
 }
 
-customElements.define("project-list", component(ProjectList, { useShadowDOM: false}))
+customElements.define("project-list", component(ProjectList, { observedAttributes: ['feed-url'], useShadowDOM: false}))

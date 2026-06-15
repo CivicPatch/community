@@ -17,7 +17,7 @@ uv run python projects/feeds/src/main.py
 
 [tasks.home-dev]
 dir = "{{ config_root }}/projects/home"
-env = { FEED_OUTPUT_FOLDER = "{{ config_root }}/projects/home/public/feeds" }
+env = { FEED_OUTPUT_FOLDER = "{{ config_root }}/projects/home/public" }
 run = """
     mise feeds &&
     npm run dev
@@ -25,7 +25,7 @@ run = """
 
 [tasks.home]
 dir = "{{ config_root }}/projects/home"
-env = { FEED_OUTPUT_FOLDER = "{{ config_root }}/projects/home/public/feeds" }
+env = { FEED_OUTPUT_FOLDER = "{{ config_root }}/projects/home/public" }
 run = """
     mise feeds &&
     npm run build

@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import cast
+from typing import cast, Optional
 from pydantic import BaseModel, HttpUrl
 from enum import Enum
 import httpx
@@ -19,6 +19,7 @@ FEED_OUTPUT_FOLDER= os.getenv(
 )
 
 class FeedType(str, Enum):
+    discussion_event = "discussion_event"
     commit_event = "commit_event"
 
 class Feed(BaseModel):
@@ -26,6 +27,8 @@ class Feed(BaseModel):
     url: HttpUrl
 
 class Project(BaseModel):
+    url: str | None = None
+    description: str | None = None
     name: str
     feeds: list[Feed]
 

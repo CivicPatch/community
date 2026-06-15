@@ -1,12 +1,68 @@
 {
   "entries": [
     {
+      "project_name": "ideas",
+      "type": "discussion_event",
+      "id": "tag:github.com,2008:10262915",
+      "title": "bluesky - alt text generator for images",
+      "link": "https://github.com/CivicPatch/community/discussions/2",
+      "updated": "2026-06-15T18:24:18Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/cd2afe9cec4c6dfd659020ec9f6c515b71cf0e20",
+      "title": "Approved by michelle@civicpatch.org",
+      "link": "https://github.com/CivicPatch/open-data/commit/cd2afe9cec4c6dfd659020ec9f6c515b71cf0e20",
+      "updated": "2026-06-11T13:57:03Z"
+    },
+    {
       "project_name": "civicpatch",
       "type": "commit_event",
       "id": "tag:github.com,2008:Grit::Commit/9307e4102cdae8173df2be56835fc5439b85628f",
       "title": "Temporary: move jurisdiction updates to open-data",
       "link": "https://github.com/CivicPatch/civicpatch-tools/commit/9307e4102cdae8173df2be56835fc5439b85628f",
       "updated": "2026-06-11T00:57:50Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/6aec544372ead10c4ff013d9f73f26e21b031bd0",
+      "title": "Process updated jurisdictions [skip ci]",
+      "link": "https://github.com/CivicPatch/open-data/commit/6aec544372ead10c4ff013d9f73f26e21b031bd0",
+      "updated": "2026-06-10T20:59:01Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/3323c8de6c5508d47ae88258f185084190a2ac09",
+      "title": "Process updated jurisdictions [skip ci]",
+      "link": "https://github.com/CivicPatch/open-data/commit/3323c8de6c5508d47ae88258f185084190a2ac09",
+      "updated": "2026-06-10T20:57:00Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/af6d2ea0d0f4354feadf0dfd2d8e00d085fad5f7",
+      "title": "Approved by volunteer@civicpatch.org",
+      "link": "https://github.com/CivicPatch/open-data/commit/af6d2ea0d0f4354feadf0dfd2d8e00d085fad5f7",
+      "updated": "2026-06-10T20:56:33Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/db20645a91cbfea848e9716c2221603e69550a28",
+      "title": "Approved by volunteer@civicpatch.org",
+      "link": "https://github.com/CivicPatch/open-data/commit/db20645a91cbfea848e9716c2221603e69550a28",
+      "updated": "2026-06-10T20:55:51Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/475323b24a6323a38a220215bcbbe5419797e5a7",
+      "title": "Approved by volunteer@civicpatch.org",
+      "link": "https://github.com/CivicPatch/open-data/commit/475323b24a6323a38a220215bcbbe5419797e5a7",
+      "updated": "2026-06-10T20:55:14Z"
     },
     {
       "project_name": "civicpatch",
@@ -27,6 +83,46 @@
     {
       "project_name": "civicpatch",
       "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/94de5b41a6dce8dcb3df81389f0361aae2383ede",
+      "title": "Process updated jurisdictions [skip ci]",
+      "link": "https://github.com/CivicPatch/open-data/commit/94de5b41a6dce8dcb3df81389f0361aae2383ede",
+      "updated": "2026-06-06T00:01:54Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/69056ed6377634f77c39119e8f5de84fab6bdce3",
+      "title": "Route people cdn_image updates through yaml_dump",
+      "link": "https://github.com/CivicPatch/open-data/commit/69056ed6377634f77c39119e8f5de84fab6bdce3",
+      "updated": "2026-06-06T00:00:00Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/80fc8dcfb6f893d7d5611e4dab1a3b9336f35d46",
+      "title": "Reformat yaml files using updated shared yaml writer",
+      "link": "https://github.com/CivicPatch/open-data/commit/80fc8dcfb6f893d7d5611e4dab1a3b9336f35d46",
+      "updated": "2026-06-06T00:00:00Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/2466b6660e3f717fe0a88366490d312e41705d68",
+      "title": "Update geoids -> explicit quotes",
+      "link": "https://github.com/CivicPatch/open-data/commit/2466b6660e3f717fe0a88366490d312e41705d68",
+      "updated": "2026-06-06T00:00:00Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/b15216d7e79a5fd22fa4cc664dc3494c3a49884f",
+      "title": "Update shared/ package; add reformat people script",
+      "link": "https://github.com/CivicPatch/open-data/commit/b15216d7e79a5fd22fa4cc664dc3494c3a49884f",
+      "updated": "2026-06-06T00:00:00Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
       "id": "tag:github.com,2008:Grit::Commit/cbe8a6ce6593869bfa54d8b3fd0abaae4774c268",
       "title": "Force raumel to use null instead of blank for empty values -- match w…",
       "link": "https://github.com/CivicPatch/civicpatch-tools/commit/cbe8a6ce6593869bfa54d8b3fd0abaae4774c268",
@@ -39,6 +135,78 @@
       "title": "Manual people edits shuffle YAML; switch to patches",
       "link": "https://github.com/CivicPatch/civicpatch-tools/commit/2ed878873b2d0eb165ce66f2b6c40f38c10e2a0a",
       "updated": "2026-06-05T23:19:53Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/fd219005147f638b7e8bff821e278ee92e2a6125",
+      "title": "Add maine state",
+      "link": "https://github.com/CivicPatch/open-data/commit/fd219005147f638b7e8bff821e278ee92e2a6125",
+      "updated": "2026-06-05T23:13:31Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/290a564eb206710e913638bfa7cf9cf7fe5ecbff",
+      "title": "Process updated jurisdictions [skip ci]",
+      "link": "https://github.com/CivicPatch/open-data/commit/290a564eb206710e913638bfa7cf9cf7fe5ecbff",
+      "updated": "2026-06-05T14:45:38Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/6ee910a5ff4dd69907efa6fc6b683cf8f653f21f",
+      "title": "Process updated jurisdictions [skip ci]",
+      "link": "https://github.com/CivicPatch/open-data/commit/6ee910a5ff4dd69907efa6fc6b683cf8f653f21f",
+      "updated": "2026-06-05T14:43:36Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/68621050857cefdccdb02bce706d60cbd6fb7c1f",
+      "title": "Approved by michelle@civicpatch.org",
+      "link": "https://github.com/CivicPatch/open-data/commit/68621050857cefdccdb02bce706d60cbd6fb7c1f",
+      "updated": "2026-06-05T14:42:29Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/c25ffe6a2d1708d62ff7e17bb54a4fd4109556a0",
+      "title": "Approved by michelle@civicpatch.org",
+      "link": "https://github.com/CivicPatch/open-data/commit/c25ffe6a2d1708d62ff7e17bb54a4fd4109556a0",
+      "updated": "2026-06-05T14:42:23Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/e9b1e19029e044ba9772a0e4008f55a8c4130127",
+      "title": "Approved by michelle@civicpatch.org",
+      "link": "https://github.com/CivicPatch/open-data/commit/e9b1e19029e044ba9772a0e4008f55a8c4130127",
+      "updated": "2026-06-05T14:42:16Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/6d21588dceb38c2d33a9796e722dabd8230cc502",
+      "title": "Approved by michelle@civicpatch.org",
+      "link": "https://github.com/CivicPatch/open-data/commit/6d21588dceb38c2d33a9796e722dabd8230cc502",
+      "updated": "2026-06-05T14:42:10Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/022afab3c99b695dbed9ffde5dec0ad9479018b8",
+      "title": "Approved by michelle@civicpatch.org",
+      "link": "https://github.com/CivicPatch/open-data/commit/022afab3c99b695dbed9ffde5dec0ad9479018b8",
+      "updated": "2026-06-05T14:41:59Z"
+    },
+    {
+      "project_name": "civicpatch",
+      "type": "commit_event",
+      "id": "tag:github.com,2008:Grit::Commit/bed7557f5314612226dc2f84a8554d29e466cf65",
+      "title": "Approved by michelle@civicpatch.org",
+      "link": "https://github.com/CivicPatch/open-data/commit/bed7557f5314612226dc2f84a8554d29e466cf65",
+      "updated": "2026-06-05T14:41:50Z"
     },
     {
       "project_name": "civicpatch",

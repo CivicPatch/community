@@ -1,24 +1,222 @@
 :root {
   color-scheme: light dark;
-  background-color: #ffffff;
+
+  --font-family-sans: -apple-system, "BlinkMacSystemFont", "Segoe UI", "Helvetica", "Arial", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-family-monospace: ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", monospace;
+  --font-family-default: var(--font-family-sans);
+  font-family: var(--font-family-default);
+
+  /* light */
+  --bg: #ffffff;
+  --ink: #16171d;
+  --ink-soft: #6b6b73;
+  --line: #16171d; /* hard rules = full ink */
+  --line-soft: #e2e2e6;
+  --accent: #c2401c;
+  --accent-ink: #ffffff; /* text sitting on the accent */
+
+  /* lets details/summary animate open to natural height */
+  interpolate-size: allow-keywords;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    background-color: #16171d;
+    /* dark */
+    --bg: #16171d;
+    --ink: #f2f2f4;
+    --ink-soft: #8a8a93;
+    --line: #f2f2f4;
+    --line-soft: #2c2d35;
+    --accent: #f2754a;
+    --accent-ink: #16171d;
   }
 }
 
 body {
   margin: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-width: 320px;
   min-height: 100svh;
+  padding-block: clamp(2rem, 8vh, 6rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-family-default);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+.content {
+  width: min(100% - 2rem, 60rem);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+project-list {
+  display: block;
+}
+
+/* ── Manifest / ledger ───────────────────────────────────── */
+
+.ledger-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 2px solid var(--line);
+  font-family: var(--font-family-monospace);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+}
+.ledger-meta {
+  color: var(--accent);
+  letter-spacing: 0.16em;
+}
+
+.projects {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.project {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  padding: 1.05rem 0.15rem;
+  transition: background-color 0.12s ease, padding-inline 0.12s ease;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* terminal-style [+] / [-] toggle */
+.marker {
+  flex-shrink: 0;
+  font-family: var(--font-family-monospace);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--accent);
+  align-self: center;
+}
+.marker::before {
+  content: "[+]";
+}
+details[open] .marker::before {
+  content: "[\2212]"; /* [−] */
+}
+
+summary h2 {
+  flex-shrink: 0;
+  margin: 0;
+  font-family: var(--font-family-default);
+  font-weight: 700;
+  font-size: clamp(1.2rem, 0.9rem + 1.2vw, 1.7rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  transition: color 0.12s ease;
+}
+summary:hover h2,
+.project:has(details[open]) h2 {
+  color: var(--accent);
+}
+
+.timestamp {
+  flex-shrink: 0;
+  font-family: var(--font-family-monospace);
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* smooth open/close where supported; snaps otherwise */
+details::details-content {
+  block-size: 0;
+  overflow: clip;
+  opacity: 0;
+  transition: block-size 0.32s cubic-bezier(0.4, 0, 0.1, 1),
+    opacity 0.3s ease, content-visibility 0.32s allow-discrete;
+}
+details[open]::details-content {
+  block-size: auto;
+  opacity: 1;
+}
+
+.entries {
+  list-style: none;
+  margin: 0;
+  padding: 0.15rem 0 1.1rem;
+  counter-reset: row;
+}
+
+/* numbered manifest rows: [01] title ............ date */
+.entry {
+  counter-increment: row;
+  display: grid;
+  grid-template-columns: 2.6rem 1fr auto;
+  align-items: baseline;
+  gap: 0.9rem;
+  padding: 0.42rem 0.6rem;
+  font-family: var(--font-family-monospace);
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+.entry::before {
+  content: counter(row, decimal-leading-zero);
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.entry a {
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.entry time {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* brutalist invert on hover — whole row flips to the accent */
+.entry:hover {
+  background-color: var(--accent);
+}
+.entry:hover a,
+.entry:hover time,
+.entry:hover::before {
+  color: var(--accent-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
