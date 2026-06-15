@@ -10,11 +10,23 @@ pre-commit install
 """
 
 [tasks.feeds]
+dir = "{{ config_root }}"
 run = """
-uv run xxx
+uv run python projects/feeds/src/main.py
 """
 
-[tasks.build-home]
-# Also include everything necessary to build-home
+[tasks.home-dev]
+dir = "{{ config_root }}/projects/home"
+env = { FEED_OUTPUT_FOLDER = "{{ config_root }}/projects/home/public/feeds" }
 run = """
+    mise feeds &&
+    npm run dev
+"""
+
+[tasks.home]
+dir = "{{ config_root }}/projects/home"
+env = { FEED_OUTPUT_FOLDER = "{{ config_root }}/projects/home/public/feeds" }
+run = """
+    mise feeds &&
+    npm run build
 """

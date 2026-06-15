@@ -2,7 +2,7 @@
   feeds:
     - type: "commit_event"
       url: https://github.com/CivicPatch/civicpatch-tools/commits.atom
-- name: unified-feeds
+- name: feeds
   feeds:
     - type: "commit_event"
-      url: https://github.com/CivicPatch/community/commits/main/projects/unified-feeds.atom
+      url: https://github.com/CivicPatch/community/commits/main/projects/feeds.atom

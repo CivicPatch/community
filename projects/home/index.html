@@ -7,10 +7,26 @@
     <title>home</title>
     <link rel="stylesheet" href="./src/index.css" />
     <script type="module" src="/src/my-element.ts"></script>
+    <script type="module" src="/src/components/project-list.ts"></script>
   </head>
   <body>
-    <my-element>
-      <h1>Get started</h1>
-    </my-element>
+    <div class="container">
+      <project-list></project-list>
+      <script src="https://giscus.app/client.js"
+        data-repo="CivicPatch/community"
+        data-repo-id="R_kgDOS41rxg"
+        data-category="Ideas"
+        data-category-id="DIC_kwDOS41rxs4C_Npl"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="preferred_color_scheme"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+      </script>
+    </div>
   </body>
 </html>
