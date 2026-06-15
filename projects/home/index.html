@@ -5,12 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>home</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Martian+Mono:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./src/index.css" />
-    <script type="module" src="/src/my-element.ts"></script>
     <script type="module" src="/src/components/project-list.ts"></script>
   </head>
   <body>
-    <div class="container">
+    <main class="content">
       <project-list></project-list>
       <script src="https://giscus.app/client.js"
         data-repo="CivicPatch/community"
@@ -27,6 +32,6 @@
         crossorigin="anonymous"
         async>
       </script>
-    </div>
+    </main>
   </body>
 </html>
