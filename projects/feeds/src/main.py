@@ -4,7 +4,8 @@ from typing import cast, Any
 from pydantic import BaseModel, HttpUrl
 from enum import Enum
 import httpx
-from datetime import datetime 
+from datetime import datetime, timezone 
+from calendar import timegm
 
 import yaml
 from email.utils import parsedate_to_datetime
@@ -81,23 +82,24 @@ def format_rss(entry: object):
         "updated": parsedate_to_datetime(rss_entry.published)
     }
 
-def get_feed_extension(url: str) -> str:
-    return url.split(".")[-1]
+def to_entry(entry: dict[str, Any]):  # pyright: ignore[reportExplicitAny]
+    when = entry.get("updated_parsed") or entry.get("published_parsed")   # struct_time
+    return {
+        "id":    entry.get("id") or entry.get("link"),
+        "title": entry.get("title") or entry.get("summary") or "(untitled)",
+        "link":  entry.get("link"),
+        "updated": datetime.fromtimestamp(timegm(when), tz=timezone.utc) if when else None
+    }
 
 def fetch_feed_entries(name: str, feed_type: FeedType, url: str):
     response = httpx.get(url)
     parsed = feedparser.parse(response.content)  # pyright: ignore[reportUnknownMemberType]
     feed = cast(dict[str, Any], parsed.feed)
-    pprint(feed)
     entries = cast(list[dict[str, object]], parsed.entries)
 
-    feed_extension = get_feed_extension(url)
-    if feed_extension == "rss":
-        entries = [format_rss(entry)
-            for entry in entries]
+    entries = [to_entry(entry) for entry in entries]
     feed_image = feed.get("image") or {}
     image: str | None = feed_image.get("href")
-
 
     entries = [FeedEntry.model_validate({
         **entry, 

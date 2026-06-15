@@ -191,34 +191,62 @@ details[open]::details-content {
 .entry {
   counter-increment: row;
   display: grid;
-  grid-template-columns: 2.6rem 3rem 1fr auto;
-  align-items: center;
+  grid-template-columns: 2.6rem 1fr auto;
+  align-items: start;
   gap: 0.9rem;
   padding: 0.42rem 0.6rem;
   font-family: var(--font-family-monospace);
   transition: background-color 0.1s ease, color 0.1s ease;
 }
 .entry::before {
-  grid-column: 1;
   content: counter(row, decimal-leading-zero);
   color: var(--ink-soft);
   font-size: 0.8rem;
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
 }
-.entry img {
-  grid-column: 2;
+/* grid item → contains the float; min-width:0 lets it shrink */
+.entry-body {
+  min-width: 0;
+}
+/* image floats; the title wraps around AND under it */
+.entry-thumb {
+  float: left;
   width: 3rem;
   height: 3rem;
+  margin: 0 0.7rem 0.2rem 0;
   object-fit: contain;
-  align-self: center;
+}
+.entry-title {
+  display: block;
+  min-width: 0;
+  line-height: 1.4;
+  /* trim the leading above the first line so text starts flush with the image top */
+  text-box-trim: trim-start;
+  text-box-edge: cap alphabetic;
+}
+.entry-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+}
+
+/* type tag — makes discussions advance against the faded commits */
+.entry-tag {
   flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  color: var(--color-3);
+  background-color: color-mix(in srgb, var(--color-3) 15%, transparent);
 }
-.entry a {
-  grid-column: 3;
-}
-.entry time {
-  grid-column: 4;
+.entry:hover .entry-tag {
+  color: var(--accent-ink);
+  background-color: color-mix(in srgb, var(--accent-ink) 22%, transparent);
 }
 
 .entry a {
@@ -226,10 +254,15 @@ details[open]::details-content {
   text-decoration: none;
   text-underline-offset: 3px;
   font-size: 1rem;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 .entry a:hover {
   text-decoration: underline;
+}
+
+/* commit events recede; discussions stay full-strength */
+.entry[data-type="commit_event"] a {
+  color: var(--ink-soft);
 }
 
 .topic {

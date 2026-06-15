@@ -105,16 +105,23 @@ const TopicList = (
                         </dl>
                         <ol class="entries">
                             ${topicGroup.entries.map((entry: any) => html`
-                                <li class="entry">
-                                    ${entry.image &&
-                                        html`<img src="${entry.image}">`
-                                    }
-                                    <a href=${entry.link} target="_blank" rel="noopener">
-                                        ${unsafeHTML(DOMPurify.sanitize(entry.title))}
-                                    </a>
-                                    <time datetime=${entry.updated}>
-                                        ${entry.updated.slice(0, 10)}
-                                    </time>
+                                <li class="entry" data-type=${entry.type}>
+                                    <div class="entry-body">
+                                        ${entry.image &&
+                                            html`<img class="entry-thumb" src="${entry.image}" alt="">`
+                                        }
+                                        <a class="entry-title" href=${entry.link} target="_blank" rel="noopener">
+                                            ${unsafeHTML(DOMPurify.sanitize(entry.title))}
+                                        </a>
+                                    </div>
+                                    <div class="entry-meta">
+                                        ${entry.type === 'discussion_event'
+                                            ? html`<span class="entry-tag">discussion</span>`
+                                            : ''}
+                                        <time datetime=${entry.updated}>
+                                            ${entry.updated.slice(0, 10)}
+                                        </time>
+                                    </div>
                                 </li>
                             `)}
                         </ol>
