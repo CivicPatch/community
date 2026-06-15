@@ -10,6 +10,7 @@
 - name: civicpatch.org
   url: https://civicpatch.org
   description: Data changes
+  type: project
   feeds:
     - type: "commit_event"
       url: https://github.com/CivicPatch/open-data/commits.atom
