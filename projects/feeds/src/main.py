@@ -1,20 +1,22 @@
 import os
 from pathlib import Path
-from tkinter import Entry
 from typing import cast
 from pydantic import BaseModel, HttpUrl
 from enum import Enum
 import httpx
-from datetime import datetime, timezone
-import feedparser 
+from datetime import datetime 
 import yaml
-from pprint import pprint
+
+import feedparser 
 
 FEEDS_FILE = os.getenv(
     "FEEDS_FILE", 
-    Path(__file__).parent.parent / "feeds.yaml"
+    str(Path(__file__).parent.parent / "feeds.yaml")
 )
-BUILD_FOLDER = Path(__file__).parent.parent / "build"
+FEED_OUTPUT_FOLDER= os.getenv(
+    "FEED_OUTPUT_FOLDER",
+    str(Path(__file__).parent.parent / "dist")
+)
 
 class FeedType(str, Enum):
     commit_event = "commit_event"
@@ -74,9 +76,9 @@ def fetch_all_entries(projects: list[Project]):
 
 
 def save_feed_entries(entries: list[FeedEntry]):
-    BUILD_FOLDER.mkdir(parents=True, exist_ok=True)
+    Path(FEED_OUTPUT_FOLDER).mkdir(parents=True, exist_ok=True)
     feed_output = EntriesOutput(entries=entries)
-    output_filename = Path(BUILD_FOLDER / "entries.json")
+    output_filename = Path(FEED_OUTPUT_FOLDER) / "entries.json"
     _ = output_filename.write_text(feed_output.model_dump_json(indent=2))
 
 def main():
