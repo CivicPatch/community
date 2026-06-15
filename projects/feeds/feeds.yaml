@@ -1,4 +1,5 @@
 - name: civicpatch-tools
+  display_name: civicpatch
   type: project
   url: https://github.com/CivicPatch/civicpatch-tools
   description: Elected officials' contact info scraper (at the local level).
@@ -7,15 +8,17 @@
       url: https://github.com/CivicPatch/civicpatch-tools/commits.atom
     - type: "commit_event"
       url: https://github.com/CivicPatch/open-data/commits.atom
-- name: civicpatch.org
+- name: civicpatch-org
+  display_name: civicpatch.org
   url: https://civicpatch.org
-  description: Data changes
+  description: Data changes for local elected officials
   type: project
   feeds:
     - type: "commit_event"
       url: https://github.com/CivicPatch/open-data/commits.atom
-- name: CivicMirror
+- name: civicmirror
   type: project
+  display_name: CivicMirror
   url: https://civicmirror.welshrd.com
   description: A mock voting platform that anyone can vote on real elections and compare the two separate votes 
   feeds:
@@ -27,6 +30,12 @@
     - type: "commit_event"
       url: https://github.com/CivicPatch/community/commits/main/projects/feeds.atom
 - name: ideas
+  description: "Got an idea for a new project, an addition to this page, or just want to browse active ideas? Check it out here!"
   feeds:
     - type: "discussion_event"
       url: https://github.com/CivicPatch/community/discussions/categories/ideas.atom
+- name: people
+  description: "People working on, blogging about, civic tech"
+  feeds:
+    - type: "discussion_event"
+      url: https://mastodon.social/@pahlkadot.rss

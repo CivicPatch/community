@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "dompurify": "^3.4.10",
     "haunted": "^6.1.0",
     "lit": "^3.3.2"
   },
