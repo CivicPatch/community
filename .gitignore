@@ -1,6 +1,8 @@
-.venv
-dist
+.venv/
+dist/
 .env
+
+node_modules/
 
 # Terraform
 .terraform/
