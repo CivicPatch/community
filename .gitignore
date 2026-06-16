@@ -11,4 +11,5 @@ node_modules/
 *.tfvars
 crash.log
 
-projects/home/public/feeds.json
+# Output from feeds project
+feeds.json

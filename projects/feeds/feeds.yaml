@@ -1,5 +1,5 @@
 - name: civicpatch-tools
-  display_name: civicpatch
+  display_name: civicpatch-tools
   type: project
   url: https://github.com/CivicPatch/civicpatch-tools
   description: Elected officials' contact info scraper (at the local level).
@@ -13,9 +13,14 @@
   url: https://civicpatch.org
   description: Data changes for local elected officials
   type: project
+  meta:
+    - label: Make blog post (admin only)
+      content: "<a href='https://github.com/CivicPatch/civicpatch/discussions/new?category=announcements' target='blank'>New Discussion</a>"
   feeds:
     - type: "commit_event"
       url: https://github.com/CivicPatch/open-data/commits.atom
+    - type: "discussion_event"
+      url: https://github.com/CivicPatch/civicpatch/discussions/categories/announcements.atom
 - name: civicmirror
   type: project
   display_name: CivicMirror
