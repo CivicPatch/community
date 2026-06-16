@@ -4,9 +4,13 @@
 
 import { html } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
+import { ref } from 'lit/directives/ref.js'
 import { component, useEffect, useRef, useState } from 'haunted'
-import type { Coord, Grid, GridConfig, Player } from './core/types'
+import type { Cell, Coord, Grid, GridConfig, Player } from './core/types'
 import { buildGrid, cellAt, coordKey, coordsEqual, isWalkable, nearestFreeCell } from './core/grid'
+import { clearCell, setCell, serializeConfig } from './core/edit'
+import { clearDraft, loadDraft, saveDraft } from './shell/draft'
+import type { Draft } from './shell/draft'
 import { buildRooms, peersInRoom, roomOf } from './core/rooms'
 import { applyDelta, canEnter, keyToDelta } from './core/movement'
 import { findPath } from './core/pathfind'
@@ -14,6 +18,7 @@ import { validateGrid } from './core/validate'
 import { readableInk } from './core/color'
 import { renderCellGlyph } from './render/cell'
 import { createBackend } from './shell/backend'
+import { GITHUB_EDIT_URL } from './shell/config'
 import type { RealtimeBackend, VoiceState } from './shell/realtime'
 import { createMeshAudio } from './shell/webrtc'
 import type { MeshAudio } from './shell/webrtc'
@@ -46,6 +51,27 @@ const pickSpawn = (grid: Grid, config: GridConfig): Coord => {
   return { col: 0, row: 0 }
 }
 
+// stable ref callback (NOT inline, or lit would re-run it every render and steal
+// focus on each keystroke) — focuses the modal on open so Escape works immediately
+const focusEl = (el?: Element) => {
+  if (el instanceof HTMLElement) el.focus()
+}
+
+// "5 minutes ago" style label for the draft's last-edited time
+const formatAgo = (ms: number): string => {
+  const sec = Math.round((Date.now() - ms) / 1000)
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['day', 86400],
+    ['hour', 3600],
+    ['minute', 60],
+    ['second', 1],
+  ]
+  for (const [unit, s] of units)
+    if (Math.abs(sec) >= s || unit === 'second') return rtf.format(-Math.round(sec / s), unit)
+  return 'just now'
+}
+
 interface ChatGridProps {
   'config-url'?: string
 }
@@ -65,6 +91,12 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const [blockedPeers, setBlocked] = useState<Set<string>>(new Set())
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null)
   const [voices, setVoices] = useState<Record<string, VoiceState>>({})
+  // map editor
+  const [config, setConfig] = useState<GridConfig | null>(null)
+  const [mapMode, setMapMode] = useState(false)
+  const [editCell, setEditCell] = useState<Cell | null>(null)
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const [showJson, setShowJson] = useState(false)
 
   // Mutable mirrors for use inside timers / the mount effect (avoid stale closures).
   // Stable per-TAB id: survives a refresh (so a reload reuses the same presence
@@ -101,21 +133,36 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     }
   }
 
+  // Adopt a config and rebuild everything derived from it (used on load and on edits).
+  const applyConfig = (c: GridConfig) => {
+    const g = buildGrid(c)
+    setConfig(c)
+    setGrid(g)
+    setRooms(buildRooms(g))
+    setErrors(validateGrid(c))
+  }
+
+  // an edit: rebuild AND persist a timestamped draft to localStorage
+  const editConfig = (c: GridConfig) => {
+    applyConfig(c)
+    saveDraft(c)
+  }
+
   // Load config, build grid + rooms, join the backend. Runs once per config-url.
   useEffect(() => {
     let cancelled = false
     const setup = async () => {
       try {
-        const config = await loadConfig(configUrl)
+        const loaded = await loadConfig(configUrl)
         if (cancelled) return
-        const g = buildGrid(config)
-        const spawn = pickSpawn(g, config)
+        const g = buildGrid(loaded)
+        const spawn = pickSpawn(g, loaded)
         const player: Player = { id: meId.current, name: meName.current, coord: spawn }
         me.current = player
-        setGrid(g)
-        setRooms(buildRooms(g))
-        setErrors(validateGrid(config))
+        applyConfig(loaded)
         setMyCoord(spawn)
+        const savedDraft = loadDraft()
+        if (savedDraft && !cancelled) setDraft(savedDraft) // offer to resume
 
         const backend = createBackend()
         backendRef.current = backend
@@ -211,6 +258,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   }
 
   const onKeyDown = (e: KeyboardEvent) => {
+    if (mapMode) return // editing, not playing
     const delta = keyToDelta(e.key)
     if (!delta || !myCoord) return
     e.preventDefault()
@@ -237,9 +285,58 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
 
   const onCellClick = (target: Coord) => {
     const g = gridRef.current
-    if (!g || !myCoord) return
+    if (!g) return
+    if (mapMode) {
+      // open the cell editor on a clone of the current cell (or a blank one)
+      setEditCell(structuredClone(cellAt(g, target) ?? { coord: target }))
+      return
+    }
+    if (!myCoord) return
     const path = findPath(g, myCoord, target, occupiedSet(othersRef.current))
     if (path && path.length) startTravel(path)
+  }
+
+  // --- map editor: edit the working cell, then commit/clear into the draft config ---
+  const editPatch = (patch: Partial<Cell>) => editCell && setEditCell({ ...editCell, ...patch })
+  const applyEdit = () => {
+    if (config && editCell) editConfig(setCell(config, editCell))
+    setEditCell(null)
+  }
+  const clearEditedCell = () => {
+    if (config && editCell) editConfig(clearCell(config, editCell.coord))
+    setEditCell(null)
+  }
+  const resumeDraft = () => {
+    if (draft) {
+      applyConfig(draft.config)
+      setMapMode(true)
+    }
+    setDraft(null)
+  }
+  const discardDraft = () => {
+    clearDraft()
+    setDraft(null)
+  }
+  const copyJson = () => {
+    if (config) navigator.clipboard?.writeText(serializeConfig(config))
+  }
+  const editLink = (field: 'url' | 'label', value: string) => {
+    const cur = editCell?.link
+    const url = (field === 'url' ? value : (cur?.url ?? '')).trim()
+    const label = (field === 'label' ? value : (cur?.label ?? '')).trim() || undefined
+    // a link is a non-walkable kiosk: setting one forces walkable:false; clearing resets it
+    editPatch(url ? { link: { url, label }, walkable: false } : { link: undefined, walkable: undefined })
+  }
+  const editDesc = (patch: Partial<NonNullable<Cell['description']>>) => {
+    const d = { ...(editCell?.description ?? {}), ...patch }
+    const empty = !d.title && !d.body && !d.links?.length
+    editPatch({ description: empty ? undefined : d })
+  }
+  const editDescLink = (field: 'url' | 'label', value: string) => {
+    const cur = editCell?.description?.links?.[0]
+    const url = (field === 'url' ? value : (cur?.url ?? '')).trim()
+    const label = (field === 'label' ? value : (cur?.label ?? '')).trim()
+    editDesc({ links: url ? [{ url, label: label || url }] : undefined })
   }
 
   const updateVoice = (id: string, state: VoiceState) => {
@@ -364,6 +461,12 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
               target="_blank"
               rel="noopener noreferrer"
               aria-label=${`Open link: ${link.label ?? link.url}`}
+              @click=${(e: Event) => {
+                if (mapMode) {
+                  e.preventDefault() // edit the tile instead of following the link
+                  onCellClick(coord)
+                }
+              }}
               >${renderCellGlyph(cell)}${pop}</a
             >`
           : html`<button
@@ -408,6 +511,54 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   return html`
     ${STYLE}
     <div class="cg-wrap">
+      ${draft
+        ? html`<div class="cg-draft-banner" role="status">
+            <span>📝 You have a map draft, last edited ${formatAgo(draft.savedAt)}.</span>
+            <button class="cg-btn" @click=${resumeDraft}>Resume</button>
+            <button class="cg-btn" @click=${discardDraft}>Discard</button>
+          </div>`
+        : ''}
+      <div class="cg-controls">
+        <button
+          class="cg-btn ${mapMode ? 'cg-btn-primary' : ''}"
+          aria-pressed=${mapMode}
+          @click=${() => {
+            setMapMode(!mapMode)
+            setEditCell(null)
+          }}
+        >
+          ${mapMode ? '✓ Done editing' : '🗺️ Map Editor'}
+        </button>
+        ${mapMode
+          ? html`<button class="cg-btn" @click=${() => setShowJson(true)}>📋 View / export JSON</button>`
+          : ''}
+        ${gate === 'on'
+          ? html`<button class="cg-btn" @click=${toggleMute}>
+              ${muted ? '🔇 Unmute' : '🎙️ Mute'}
+            </button>`
+          : html`<button
+              class="cg-btn"
+              ?disabled=${gate === 'requesting'}
+              @click=${() => dispatchGate('enable')}
+            >
+              ${gate === 'requesting'
+                ? 'Requesting mic…'
+                : gate === 'denied'
+                  ? 'Mic blocked — retry'
+                  : '🔊 Enable audio'}
+            </button>`}
+        ${gate === 'on'
+          ? html`<span class="cg-controls-hint">
+              ${myRoom === null
+                ? 'step onto an audio tile to talk'
+                : roomPeers.length === 0
+                  ? 'no one else in this room yet'
+                  : connectedCount === 0
+                    ? 'connecting… (others must enable audio too)'
+                    : `talking with ${connectedCount}`}
+            </span>`
+          : ''}
+      </div>
       <div class="cg-stage">
         <div
           class="cg-grid"
@@ -454,34 +605,6 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
               `
             : html`<p class="cg-panel-empty">Step onto a tile with details to see them here.</p>`}
         </aside>
-        <div class="cg-controls">
-        ${gate === 'on'
-          ? html`<button class="cg-btn" @click=${toggleMute}>
-              ${muted ? '🔇 Unmute' : '🎙️ Mute'}
-            </button>`
-          : html`<button
-              class="cg-btn"
-              ?disabled=${gate === 'requesting'}
-              @click=${() => dispatchGate('enable')}
-            >
-              ${gate === 'requesting'
-                ? 'Requesting mic…'
-                : gate === 'denied'
-                  ? 'Mic blocked — retry'
-                  : '🔊 Enable audio'}
-            </button>`}
-        ${gate === 'on'
-          ? html`<span class="cg-controls-hint">
-              ${myRoom === null
-                ? 'step onto an audio tile to talk'
-                : roomPeers.length === 0
-                  ? 'no one else in this room yet'
-                  : connectedCount === 0
-                    ? 'connecting… (others must enable audio too)'
-                    : `talking with ${connectedCount}`}
-            </span>`
-          : ''}
-      </div>
       ${myRoom !== null
         ? html`<section class="cg-roster" aria-label="People in your audio room">
             ${roomPeerPlayers.length === 0
@@ -565,8 +688,147 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
             ${errors.map((e) => html`<li>${e}</li>`)}
           </ul>`
         : ''}
+      ${editCell ? cellEditor(editCell) : ''}
+      ${showJson && config
+        ? html`<div class="cg-modal-backdrop" @click=${() => setShowJson(false)}>
+            <div
+              class="cg-modal cg-modal-wide"
+              role="dialog"
+              aria-modal="true"
+              tabindex="-1"
+              aria-label="Map JSON"
+              ${ref(focusEl)}
+              @click=${(e: Event) => e.stopPropagation()}
+              @keydown=${(e: KeyboardEvent) => e.key === 'Escape' && setShowJson(false)}
+            >
+              <h3 class="cg-modal-title">Map JSON</h3>
+              <p class="cg-modal-hint">
+                Copy this, then <strong>Edit on GitHub</strong> → paste into
+                <code>public/grid.json</code> → <em>Propose changes</em> (opens a PR).
+              </p>
+              <textarea class="cg-json" readonly .value=${serializeConfig(config)}></textarea>
+              <div class="cg-modal-actions">
+                <button class="cg-btn" @click=${() => setShowJson(false)}>Close</button>
+                <a class="cg-btn" href=${GITHUB_EDIT_URL} target="_blank" rel="noopener noreferrer">
+                  Edit on GitHub ↗
+                </a>
+                <button class="cg-btn cg-btn-primary" @click=${copyJson}>Copy JSON</button>
+              </div>
+            </div>
+          </div>`
+        : ''}
     </div>
   `
+
+  function cellEditor(cell: Cell) {
+    const val = (e: Event) => (e.target as HTMLInputElement).value
+    const checked = (e: Event) => (e.target as HTMLInputElement).checked
+    return html`<div class="cg-modal-backdrop" @click=${() => setEditCell(null)}>
+      <div
+        class="cg-modal"
+        role="dialog"
+        aria-modal="true"
+        tabindex="-1"
+        aria-label=${`Edit cell ${cell.coord.col}, ${cell.coord.row}`}
+        ${ref(focusEl)}
+        @click=${(e: Event) => e.stopPropagation()}
+        @keydown=${(e: KeyboardEvent) => e.key === 'Escape' && setEditCell(null)}
+      >
+        <h3 class="cg-modal-title">Cell ${cell.coord.col}, ${cell.coord.row}</h3>
+        <div class="cg-field">
+          <label>Color</label>
+          <input
+            type="color"
+            .value=${cell.color ?? '#888888'}
+            @input=${(e: Event) => editPatch({ color: val(e) })}
+          />
+          ${cell.color
+            ? html`<button class="cg-btn" @click=${() => editPatch({ color: undefined })}>clear</button>`
+            : ''}
+        </div>
+        <div class="cg-field">
+          <label>Character</label>
+          <input
+            maxlength="2"
+            .value=${cell.char ?? ''}
+            @input=${(e: Event) => editPatch({ char: val(e) || undefined })}
+          />
+        </div>
+        <div class="cg-field">
+          <label>Image URL</label>
+          <input
+            type="url"
+            .value=${cell.image ?? ''}
+            @input=${(e: Event) => editPatch({ image: val(e) || undefined })}
+          />
+        </div>
+        <label class="cg-check">
+          <input
+            type="checkbox"
+            ?disabled=${!!cell.link}
+            .checked=${cell.audio ?? false}
+            @change=${(e: Event) => editPatch({ audio: checked(e) || undefined })}
+          />
+          Audio zone
+        </label>
+        <label class="cg-check">
+          <input
+            type="checkbox"
+            ?disabled=${!!cell.link}
+            .checked=${!cell.link && cell.walkable !== false}
+            @change=${(e: Event) => editPatch({ walkable: checked(e) ? undefined : false })}
+          />
+          Walkable
+        </label>
+        <fieldset class="cg-fieldset">
+          <legend>Link — a non-walkable kiosk (mutually exclusive with audio)</legend>
+          <input
+            type="url"
+            placeholder="https://…"
+            ?disabled=${!!cell.audio}
+            .value=${cell.link?.url ?? ''}
+            @input=${(e: Event) => editLink('url', val(e))}
+          />
+          <input
+            placeholder="label / icon (e.g. 📹)"
+            ?disabled=${!!cell.audio}
+            .value=${cell.link?.label ?? ''}
+            @input=${(e: Event) => editLink('label', val(e))}
+          />
+        </fieldset>
+        <fieldset class="cg-fieldset">
+          <legend>Description — hover preview & side panel when standing</legend>
+          <input
+            placeholder="title"
+            .value=${cell.description?.title ?? ''}
+            @input=${(e: Event) => editDesc({ title: val(e) || undefined })}
+          />
+          <textarea
+            placeholder="body"
+            rows="2"
+            .value=${cell.description?.body ?? ''}
+            @input=${(e: Event) => editDesc({ body: val(e) || undefined })}
+          ></textarea>
+          <input
+            type="url"
+            placeholder="link url (e.g. a Meet link)"
+            .value=${cell.description?.links?.[0]?.url ?? ''}
+            @input=${(e: Event) => editDescLink('url', val(e))}
+          />
+          <input
+            placeholder="link label"
+            .value=${cell.description?.links?.[0]?.label ?? ''}
+            @input=${(e: Event) => editDescLink('label', val(e))}
+          />
+        </fieldset>
+        <div class="cg-modal-actions">
+          <button class="cg-btn" @click=${() => setEditCell(null)}>Cancel</button>
+          <button class="cg-btn" @click=${clearEditedCell}>Clear cell</button>
+          <button class="cg-btn cg-btn-primary" @click=${applyEdit}>Apply</button>
+        </div>
+      </div>
+    </div>`
+  }
 }
 
 // Styles live in the template, scoped by the shadow root (Haunted's default).
@@ -615,11 +877,6 @@ const STYLE = html`
       display: flex;
       flex-direction: column;
       gap: 10px;
-    }
-    /* keep the roster directly under the description; push controls to the bottom */
-    .cg-side .cg-controls {
-      order: 1;
-      margin-top: 0;
     }
     .cg-panel {
       padding: 10px 12px;
@@ -850,12 +1107,19 @@ const STYLE = html`
       margin-top: 2px;
     }
     .cg-controls {
-      margin-top: 8px;
+      margin: 0 0 12px;
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 8px;
     }
     .cg-btn {
+      /* inline-flex so an <a class="cg-btn"> (Edit on GitHub) sizes/aligns exactly
+         like a <button> — min-height doesn't apply to a plain inline anchor */
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
       font: inherit;
       font-size: 13px;
       min-height: 40px; /* comfortable touch target */
@@ -864,6 +1128,7 @@ const STYLE = html`
       border-radius: 6px;
       background: var(--cg-cell);
       color: var(--cg-text);
+      text-decoration: none;
       cursor: pointer;
     }
     .cg-btn:hover:not(:disabled) {
@@ -876,6 +1141,114 @@ const STYLE = html`
     .cg-btn:disabled {
       opacity: 0.6;
       cursor: default;
+    }
+    .cg-btn-primary {
+      background: var(--cg-accent);
+      color: var(--accent-ink, #fff);
+      border-color: var(--cg-accent);
+    }
+    /* map editor modal */
+    .cg-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .cg-modal {
+      width: min(100%, 360px);
+      max-height: 85vh;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px;
+      background: var(--bg, #16171d);
+      color: var(--cg-text);
+      border: 1px solid var(--cg-border);
+      border-radius: 10px;
+    }
+    .cg-modal-title {
+      margin: 0;
+      font-size: 16px;
+    }
+    .cg-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cg-field label {
+      flex: 0 0 90px;
+      font-size: 13px;
+    }
+    .cg-field input {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .cg-check {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+    }
+    .cg-fieldset {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border: 1px solid var(--cg-line);
+      border-radius: 6px;
+      padding: 8px;
+    }
+    .cg-fieldset legend {
+      font-size: 12px;
+      color: var(--cg-dim);
+      padding: 0 4px;
+    }
+    .cg-modal input,
+    .cg-modal textarea {
+      font: inherit;
+      padding: 4px 6px;
+      background: var(--cg-cell);
+      color: var(--cg-text);
+      border: 1px solid var(--cg-border);
+      border-radius: 4px;
+    }
+    .cg-modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 4px;
+    }
+    .cg-modal-wide {
+      width: min(100%, 560px);
+    }
+    .cg-modal-hint {
+      margin: 0;
+      font-size: 12px;
+      color: var(--cg-dim);
+    }
+    .cg-json {
+      width: 100%;
+      min-height: 240px;
+      font-family: var(--font-family-monospace, ui-monospace, monospace);
+      font-size: 12px;
+      resize: vertical;
+    }
+    .cg-draft-banner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--bg, #16171d), var(--cg-accent) 14%);
+      border: 1px solid var(--cg-border);
+      font-size: 13px;
     }
     .cg-controls-hint {
       color: var(--cg-dim);
