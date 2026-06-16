@@ -72,6 +72,36 @@ topic-list {
   display: block;
 }
 
+hr {
+  border: 0;
+  height: 1px;
+  margin: 2rem 0;
+  background-color: var(--line-soft);
+}
+
+/* all links use the accent color */
+a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+  transition: color 0.12s ease;
+}
+a:hover {
+  color: color-mix(in srgb, var(--accent) 75%, var(--ink));
+  text-decoration: underline;
+}
+
+/* top-level page sections (direct children of .content only — NOT the
+   <section> wrappers inside the topic-list component) */
+/* plain content lists (e.g. the Links section) */
+.content > section ul {
+  margin-block: 0.6rem 0;
+  padding-left: 1.25rem;
+}
+.content > section li {
+  padding-block: 0.4rem;
+  line-height: 1.5;
+}
+
 /* ── Manifest / ledger ───────────────────────────────────── */
 
 .ledger-head {
@@ -249,7 +279,7 @@ details[open]::details-content {
 }
 
 .entry a {
-  color: var(--ink);
+  color: var(--accent);
   text-decoration: none;
   text-underline-offset: 3px;
   font-size: 1rem;
@@ -257,11 +287,6 @@ details[open]::details-content {
 }
 .entry a:hover {
   text-decoration: underline;
-}
-
-/* commit events recede; discussions stay full-strength */
-.entry[data-type="commit_event"] a {
-  color: var(--ink-soft);
 }
 
 .topic {
@@ -363,6 +388,53 @@ span.topic-type-project {
   padding: 0.2rem;
   color: var(--color-2);
   background-color: color-mix(in srgb, var(--color-2) 14%, transparent);
+}
+
+/* ── Onboarding steps ────────────────────────────────────── */
+
+.onboarding {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+}
+
+.onboarding-step {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  column-gap: 1.25rem;
+  row-gap: 0.25rem;
+}
+
+/* the bigg-ish step number */
+.onboarding-step::before {
+  content: counter(step);
+  grid-row: 1 / span 2;
+  align-self: start;
+  font-family: var(--font-family-monospace);
+  font-size: clamp(2.4rem, 1.6rem + 2.4vw, 3.4rem);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.onboarding-step-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.01em;
+}
+
+.onboarding-step-body {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.5;
 }
 
 /* footer stamp — when the feed was last rebuilt (bookend to .ledger-head) */
