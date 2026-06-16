@@ -3,30 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>chat-grid — Phase 0 demo</title>
+    <title>chat-grid — demo</title>
+    <!-- the site stylesheet provides the theme tokens (--ink/--bg/--accent…) and
+         color-scheme: light dark; the component reads those through the shadow DOM -->
+    <link rel="stylesheet" href="/src/index.css" />
     <style>
       body {
-        background: #121212;
-        color: #ddd;
-        font-family: system-ui, sans-serif;
         margin: 2rem;
       }
       .note {
         max-width: 40rem;
-        color: #aaa;
         font-size: 0.9rem;
+        opacity: 0.8;
       }
     </style>
   </head>
   <body>
-    <h1>chat-grid — Phase 0</h1>
-    <p class="note">
-      Pure-core grid with multiplayer movement over a BroadcastChannel fake backend
-      (no server, no audio yet). <strong>Open this page in two browser tabs</strong> to see
-      players move in real time. Click the grid to focus it, then move with WASD / arrow keys,
-      or click a cell to travel there. Audio rooms are highlighted when you stand in them.
-    </p>
-    <chat-grid config-url="/grid.json"></chat-grid>
+    <!-- .content is the site's column wrapper; it stretches children to a sane
+         width. Without it, body's `align-items: center` collapses the grid. -->
+    <main class="content">
+      <h1>chat-grid</h1>
+      <p class="note">
+        Open in two tabs (or devices) to see multiplayer movement and proximity voice.
+        Click to focus, move with WASD / arrows or click a tile. Theme follows your
+        system light/dark setting.
+      </p>
+      <chat-grid config-url="/grid.json"></chat-grid>
+    </main>
     <script type="module" src="/src/components/chat-grid/chat-grid.ts"></script>
   </body>
 </html>
