@@ -1,13 +1,11 @@
 // Real backend: Supabase Realtime, entirely client-side (no server we run).
 //
-// Two channels of one Supabase channel, used for what each is good at:
-//   • Presence  -> the ROSTER (who's here). Tracked ONCE on join, so it stays
-//     quiet and stable; also gives free zombie cleanup on disconnect.
-//   • Broadcast -> POSITIONS. Frequent, ephemeral per-move messages — exactly
-//     what broadcast is for. (Re-tracking presence per move overwhelmed it and
-//     made avatars flap in/out.)
-// Implements the same RealtimeBackend interface as the fake, so swapping is
-// transparent to the rest of the app.
+//   • Presence  -> roster membership (tracked once on join; quiet & stable)
+//   • Broadcast -> positions + WebRTC signaling (frequent, ephemeral)
+//
+// The fiddly bits live elsewhere: roster membership + presence grace in roster.ts,
+// listener plumbing in emitter.ts, connection status in the session FSM. This file
+// is just the wiring between Supabase and those.
 
 import { createClient } from '@supabase/supabase-js'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -15,10 +13,13 @@ import type { Coord, Player, PlayerId } from '../core/types'
 import type { RealtimeBackend, Signal } from './realtime'
 import { initialStatus, nextStatus } from '../core/fsm/session'
 import type { ConnStatus, SessionEvent } from '../core/fsm/session'
+import { createEmitter } from './emitter'
+import { createRoster } from './roster'
 
 const REJOIN_DELAY_MS = 1500
+const PRESENCE_GRACE_MS = 6000
 
-type MovePayload = { id: string; coord: Coord }
+type MovePayload = { id: PlayerId; coord: Coord }
 type SignalPayload = { to: PlayerId; from: PlayerId; signal: Signal }
 
 export const createSupabaseBackend = (
@@ -31,68 +32,43 @@ export const createSupabaseBackend = (
   let me: Player | null = null
   let leaving = false // set only by leave(); distinguishes intentional close
 
-  // OTHER players. Presence decides membership; broadcast updates coords.
-  const roster = new Map<string, Player>()
-  let listeners: ((others: Player[]) => void)[] = []
-
-  let signalListeners: ((from: PlayerId, signal: Signal) => void)[] = []
+  const players = createEmitter<Player[]>()
+  const signals = createEmitter<{ from: PlayerId; signal: Signal }>()
+  const statuses = createEmitter<ConnStatus>()
+  const roster = createRoster({ graceMs: PRESENCE_GRACE_MS, onChange: players.emit })
 
   let status: ConnStatus = initialStatus
-  let statusListeners: ((s: ConnStatus) => void)[] = []
   const dispatch = (event: SessionEvent) => {
     status = nextStatus(status, event)
-    for (const cb of statusListeners) cb(status)
+    statuses.emit(status)
   }
 
-  const emit = () => {
-    const others = [...roster.values()]
-    for (const cb of listeners) cb(others)
-  }
-
-  // Presence drives roster MEMBERSHIP only. Seed new players with their presence
-  // coord; keep existing players' coords (broadcast owns those) so a late sync
-  // doesn't snap someone back to where they spawned.
-  const syncRoster = () => {
-    if (!channel) return
+  // Flatten presence into the OTHER players, deduped by id (a reconnecting peer
+  // can momentarily appear under two presence refs).
+  const presentOthers = (): Player[] => {
+    if (!channel) return []
     const state = channel.presenceState<{ player: Player }>()
-    const present = new Set<string>()
+    const byId = new Map<PlayerId, Player>()
     for (const presenceKey of Object.keys(state))
-      for (const entry of state[presenceKey]) {
-        const p = entry.player
-        if (p.id === me?.id) continue
-        present.add(p.id)
-        if (!roster.has(p.id)) roster.set(p.id, { ...p })
-      }
-    for (const id of [...roster.keys()]) if (!present.has(id)) roster.delete(id)
-    emit()
+      for (const entry of state[presenceKey])
+        if (entry.player.id !== me?.id) byId.set(entry.player.id, entry.player)
+    return [...byId.values()]
   }
 
-  const onMove = ({ id, coord }: MovePayload) => {
-    if (id === me?.id) return
-    const existing = roster.get(id)
-    if (existing) {
-      existing.coord = coord
-      emit()
-    }
-    // if not in the roster yet, the next presence sync adds them
-  }
-
-  const broadcastMove = () => {
-    if (!me || !channel) return
-    // fire-and-forget; positions are idempotent so an occasional drop self-heals
+  // fire-and-forget; positions/signals are idempotent or naturally re-sent, so a
+  // transient send failure must never throw into the caller
+  const send = (event: 'move' | 'signal', payload: MovePayload | SignalPayload) => {
+    if (!channel) return
     try {
-      const payload: MovePayload = { id: me.id, coord: me.coord }
-      Promise.resolve(
-        channel.send({ type: 'broadcast', event: 'move', payload }),
-      ).catch(() => {})
+      Promise.resolve(channel.send({ type: 'broadcast', event, payload })).catch(() => {})
     } catch {
-      // ignore — local movement must not depend on the network succeeding
+      /* ignore */
     }
   }
+  const broadcastMove = () => me && send('move', { id: me.id, coord: me.coord })
 
-  // (Re)subscribe the channel. Supabase auto-retries CHANNEL_ERROR/TIMED_OUT, but
-  // a CLOSED channel does NOT rejoin itself — so we rebuild it on an unexpected
-  // close, which keeps the status badge from sticking on "offline".
+  // Supabase auto-retries CHANNEL_ERROR/TIMED_OUT, but a CLOSED channel does not
+  // rejoin itself — so we rebuild it on an unexpected close.
   const connect = () => {
     const player = me
     if (!player) return
@@ -100,18 +76,19 @@ export const createSupabaseBackend = (
       config: { presence: { key: player.id }, broadcast: { self: false } },
     })
     channel = ch
-    ch.on('presence', { event: 'sync' }, syncRoster)
+    ch.on('presence', { event: 'sync' }, () => roster.applyPresence(presentOthers()))
       .on('presence', { event: 'join' }, () => {
-        // a newcomer can't know where we already moved to — re-announce our spot
-        syncRoster()
-        broadcastMove()
+        roster.applyPresence(presentOthers())
+        broadcastMove() // a newcomer doesn't know where we've moved to — re-announce
       })
-      .on('presence', { event: 'leave' }, syncRoster)
-      .on('broadcast', { event: 'move' }, ({ payload }) => onMove(payload as MovePayload))
+      .on('presence', { event: 'leave' }, () => roster.applyPresence(presentOthers()))
+      .on('broadcast', { event: 'move' }, ({ payload }) => {
+        const { id, coord } = payload as MovePayload
+        if (id !== me?.id) roster.updateCoord(id, coord)
+      })
       .on('broadcast', { event: 'signal' }, ({ payload }) => {
         const { to, from, signal } = payload as SignalPayload
-        if (to !== me?.id) return // broadcast reaches everyone; only the target acts
-        for (const cb of signalListeners) cb(from, signal)
+        if (to === me?.id) signals.emit({ from, signal })
       })
       .subscribe((channelStatus) => {
         if (channelStatus === 'SUBSCRIBED') {
@@ -122,8 +99,7 @@ export const createSupabaseBackend = (
           dispatch('dropped')
           rejoin(ch)
         } else {
-          // CHANNEL_ERROR / TIMED_OUT — transient; let Supabase auto-retry
-          dispatch('dropped')
+          dispatch('dropped') // CHANNEL_ERROR / TIMED_OUT — transient
         }
       })
   }
@@ -131,9 +107,8 @@ export const createSupabaseBackend = (
   const rejoin = (stale: RealtimeChannel) => {
     setTimeout(async () => {
       if (leaving) return
-      // removeChannel is async; the topic ('chat-grid') is shared across clients
-      // so we can't rename it — fully remove the closed channel BEFORE recreating,
-      // or client.channel() returns the old (subscribed) one and .on() throws.
+      // fully remove the closed channel before recreating — the topic is shared,
+      // so client.channel() would otherwise hand back the old (subscribed) one
       await client.removeChannel(stale)
       if (!leaving) connect()
     }, REJOIN_DELAY_MS)
@@ -151,38 +126,21 @@ export const createSupabaseBackend = (
       me.coord = coord
       broadcastMove()
     },
-    onPlayers(cb) {
-      listeners.push(cb)
-      return () => {
-        listeners = listeners.filter((l) => l !== cb)
-      }
-    },
+    onPlayers: players.on,
     onStatus(cb) {
-      statusListeners.push(cb)
-      cb(status)
-      return () => {
-        statusListeners = statusListeners.filter((l) => l !== cb)
-      }
+      cb(status) // fire immediately with the current value
+      return statuses.on(cb)
     },
     sendSignal(to, signal) {
-      if (!me || !channel) return
-      const payload: SignalPayload = { to, from: me.id, signal }
-      try {
-        Promise.resolve(channel.send({ type: 'broadcast', event: 'signal', payload })).catch(
-          () => {},
-        )
-      } catch {
-        // ignore — signaling retries naturally (offer/answer/ICE are re-sent)
-      }
+      if (!me) return
+      send('signal', { to, from: me.id, signal })
     },
     onSignal(cb) {
-      signalListeners.push(cb)
-      return () => {
-        signalListeners = signalListeners.filter((l) => l !== cb)
-      }
+      return signals.on(({ from, signal }) => cb(from, signal))
     },
     leave() {
       leaving = true
+      roster.dispose()
       if (!channel) return
       channel.untrack()
       client.removeChannel(channel)
