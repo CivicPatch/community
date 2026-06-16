@@ -29,6 +29,13 @@ run = """
     npm run dev
 """
 
+[tasks.test]
+dir = "{{ config_root }}/projects/home"
+run = """
+    npm ci &&
+    npm run test:run
+"""
+
 [tasks.build]
 dir = "{{ config_root }}/projects/home"
 env = { FEED_OUTPUT_FOLDER = "{{ config_root }}/projects/home/public" }

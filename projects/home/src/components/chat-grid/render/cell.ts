@@ -18,6 +18,7 @@ export const renderCellGlyph = (cell: Cell | undefined): TemplateResult | string
     >`
   if (cell.image) return '' // the image is the visual
   if (cell.link) return html`<span class="cg-cell-icon" aria-hidden="true">${cell.link.label ?? '🔗'}</span>`
+  if (cell.radio) return html`<span class="cg-cell-icon" aria-hidden="true">📻</span>`
   if (cell.audio) return html`<span class="cg-cell-icon" aria-hidden="true">🔊</span>`
   return ''
 }

@@ -34,6 +34,10 @@ export const isWalkable = (grid: Grid, c: Coord): boolean => {
 
 export const isAudio = (grid: Grid, c: Coord): boolean => cellAt(grid, c)?.audio === true
 
+/** The radio station at a coord, or null. Pure selector — the shell tunes/stops off this. */
+export const radioAt = (grid: Grid, c: Coord): { url: string; label?: string } | null =>
+  cellAt(grid, c)?.radio ?? null
+
 /** 4-directional (orthogonal) in-bounds neighbours — matches WASD movement. */
 export const neighbors = (grid: Grid, c: Coord): Coord[] => {
   const deltas: Coord[] = [

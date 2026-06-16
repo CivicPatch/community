@@ -7,7 +7,7 @@ import { repeat } from 'lit/directives/repeat.js'
 import { ref } from 'lit/directives/ref.js'
 import { component, useEffect, useRef, useState } from 'haunted'
 import type { Cell, Coord, Grid, GridConfig, Player } from './core/types'
-import { buildGrid, cellAt, coordKey, coordsEqual, isWalkable, nearestFreeCell } from './core/grid'
+import { buildGrid, cellAt, coordKey, coordsEqual, isWalkable, nearestFreeCell, radioAt } from './core/grid'
 import { clearCell, setCell, serializeConfig, setGridMeta } from './core/edit'
 import { clearDraft, loadDraft, saveDraft } from './shell/draft'
 import type { Draft } from './shell/draft'
@@ -16,8 +16,11 @@ import { loadSoundPrefs, saveSoundPrefs } from './shell/sound-prefs'
 import type { SoundPrefs } from './shell/sound-prefs'
 import { createPinger } from './shell/ping'
 import type { Pinger } from './shell/ping'
+import { createRadio } from './shell/radio'
+import type { Radio } from './shell/radio'
 import { BUBBLE_MS, bubbleVisible, diffPresence, rankRoster } from './core/presence'
 import { buildRooms, peersInRoom, roomOf } from './core/rooms'
+import { describeCell } from './core/describe'
 import { applyDelta, canEnter, keyToDelta } from './core/movement'
 import { findPath } from './core/pathfind'
 import { validateGrid } from './core/validate'
@@ -67,7 +70,7 @@ const focusEl = (el?: Element) => {
 const inputValue = (e: Event) => (e.target as HTMLInputElement).value
 
 // labels for the mutually-exclusive pickers in the cell editor
-const ROLE_LABELS = { floor: 'Floor', wall: 'Wall', audio: '🔊 Audio', link: '🔗 Link' } as const
+const ROLE_LABELS = { floor: 'Floor', wall: 'Wall', audio: '🔊 Audio', radio: '📻 Radio', link: '🔗 Link' } as const
 const GLYPH_LABELS = { none: 'None', char: 'Character', svg: 'Inline SVG' } as const
 
 // At most one modal is open at a time — one tagged value, not three booleans that
@@ -154,6 +157,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
   const meshRef = useRef<MeshAudio | null>(null)
   const meterRef = useRef<Meter | null>(null)
   const pingerRef = useRef<Pinger | null>(null)
+  const radioRef = useRef<Radio | null>(null)
   const prevPlayersRef = useRef<Player[] | null>(null) // last roster snapshot, for diffing
   const soundPrefsRef = useRef<SoundPrefs>(soundPrefs) // read inside the diff effect
   const voicesRef = useRef<Record<string, VoiceState>>({})
@@ -285,6 +289,20 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
     micRef.current?.getAudioTracks().forEach((t) => (t.enabled = live))
   }, [myCoord, rooms, gate, muted])
 
+  // Music tiles: standing on a radio cell streams it for ME only; stepping off
+  // (or onto a different station) retunes/stops. Mirrors the mic-room effect —
+  // position-driven, idempotent in the shell so re-renders never restart a stream.
+  useEffect(() => {
+    const g = gridRef.current
+    const station = g && myCoord ? radioAt(g, myCoord) : null
+    if (!station) return radioRef.current?.stop()
+    if (!radioRef.current) radioRef.current = createRadio()
+    radioRef.current.tune(station.url)
+  }, [myCoord, grid])
+
+  // release the audio element when the component goes away
+  useEffect(() => () => radioRef.current?.dispose(), [])
+
   // Cells are exclusive, but two clients can land on the same one (e.g. both spawn
   // there before presence syncs). Deterministic tiebreak: the lowest id keeps the
   // cell; anyone else hops to the nearest free cell.
@@ -360,13 +378,17 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
   const editPatch = (patch: Partial<Cell>) => editCell && setEditCell({ ...editCell, ...patch })
   // A tile is exactly ONE of these (mutually exclusive behavior). Derived from the
   // cell so the radio always reflects the real state — no separate UI flag to desync.
-  const cellRole = (c: Cell): 'floor' | 'wall' | 'audio' | 'link' =>
-    c.link ? 'link' : c.audio ? 'audio' : c.walkable === false ? 'wall' : 'floor'
+  const cellRole = (c: Cell): 'floor' | 'wall' | 'audio' | 'radio' | 'link' =>
+    c.link ? 'link' : c.radio ? 'radio' : c.audio ? 'audio' : c.walkable === false ? 'wall' : 'floor'
   const setRole = (role: ReturnType<typeof cellRole>) => {
-    if (role === 'link') editPatch({ link: editCell?.link ?? { url: '' }, audio: undefined, walkable: false })
-    else if (role === 'audio') editPatch({ audio: true, link: undefined, walkable: undefined })
-    else if (role === 'wall') editPatch({ walkable: false, audio: undefined, link: undefined })
-    else editPatch({ walkable: undefined, audio: undefined, link: undefined })
+    // each role is exclusive: clear the others. radio is walkable (you stand on it).
+    if (role === 'link')
+      editPatch({ link: editCell?.link ?? { url: '' }, radio: undefined, audio: undefined, walkable: false })
+    else if (role === 'radio')
+      editPatch({ radio: editCell?.radio ?? { url: '' }, link: undefined, audio: undefined, walkable: undefined })
+    else if (role === 'audio') editPatch({ audio: true, radio: undefined, link: undefined, walkable: undefined })
+    else if (role === 'wall') editPatch({ walkable: false, audio: undefined, radio: undefined, link: undefined })
+    else editPatch({ walkable: undefined, audio: undefined, radio: undefined, link: undefined })
   }
   // Foreground glyph: char and inline SVG are mutually exclusive (only one renders).
   const cellGlyph = (c: Cell): 'none' | 'char' | 'svg' =>
@@ -386,6 +408,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
         delete c.link
         if (c.walkable === false) delete c.walkable // an unfinished link reverts to floor
       }
+      if (c.radio && !c.radio.url.trim()) delete c.radio // an unfinished radio reverts to floor
       editConfig(setCell(config, c))
     }
     setEditCell(null)
@@ -414,6 +437,13 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
     const label = (field === 'label' ? value : (cur?.label ?? '')).trim() || undefined
     // a link is a non-walkable kiosk: setting one forces walkable:false; clearing resets it
     editPatch(url ? { link: { url, label }, walkable: false } : { link: undefined, walkable: undefined })
+  }
+  const editRadio = (field: 'url' | 'label', value: string) => {
+    const cur = editCell?.radio
+    const url = (field === 'url' ? value : (cur?.url ?? '')).trim()
+    const label = (field === 'label' ? value : (cur?.label ?? '')).trim() || undefined
+    // a radio tile stays WALKABLE — you stand on it to listen
+    editPatch({ radio: { url, label } })
   }
   const editDesc = (patch: Partial<NonNullable<Cell['description']>>) => {
     const d = { ...(editCell?.description ?? {}), ...patch }
@@ -566,8 +596,9 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
   const ranked = rankRoster(others, rooms, myCoord)
   const roomPeerPlayers = ranked.blob
   const connectedCount = roomPeerPlayers.filter((p) => peerStates[p.id] === 'connected').length
-  // side panel = the description of the tile you're STANDING on (hover uses the popover)
-  const description = myCoord ? cellAt(grid, myCoord)?.description : undefined
+  // side panel = the description of the tile you're STANDING on (hover uses the popover).
+  // describeCell supplies a role-based default when the tile has no authored text.
+  const description = myCoord ? describeCell(cellAt(grid, myCoord)) : undefined
 
   const cells = []
   for (let row = 0; row < grid.rows; row++) {
@@ -575,12 +606,14 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
       const coord = { col, row }
       const cell = cellAt(grid, coord)
       const isAudioCell = cell?.audio === true
+      const isRadioCell = !!cell?.radio
       const link = cell?.link ?? null
       const wall = cell?.walkable === false
       const hasDesc = !!cell?.description
       const activeRoom = isAudioCell && myRoom !== null && roomOf(rooms, coord) === myRoom
       const classes = ['cg-cell']
       if (isAudioCell) classes.push('cg-audio')
+      if (isRadioCell) classes.push('cg-radio')
       if (activeRoom) classes.push('cg-active-room')
       if (link) classes.push('cg-link')
       if (hasDesc) classes.push('cg-has-desc')
@@ -1097,7 +1130,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
         <div class="cg-field cg-field-col">
           <label>This tile is…</label>
           <div class="cg-seg" role="radiogroup" aria-label="Tile type">
-            ${(['floor', 'wall', 'audio', 'link'] as const).map(
+            ${(['floor', 'wall', 'audio', 'radio', 'link'] as const).map(
               (r) => html`<label class="cg-seg-opt ${role === r ? 'cg-seg-on' : ''}">
                 <input type="radio" name="cg-role" .checked=${role === r} @change=${() => setRole(r)} />
                 <span>${ROLE_LABELS[r]}</span>
@@ -1116,6 +1149,21 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
                   placeholder="label / icon (e.g. 📹)"
                   .value=${cell.link?.label ?? ''}
                   @input=${(e: Event) => editLink('label', val(e))}
+                />
+              </div>`
+            : ''}
+          ${role === 'radio'
+            ? html`<div class="cg-subfields">
+                <input
+                  type="url"
+                  placeholder="https://… (stream URL, e.g. a SomaFM station)"
+                  .value=${cell.radio?.url ?? ''}
+                  @input=${(e: Event) => editRadio('url', val(e))}
+                />
+                <input
+                  placeholder="station name (e.g. Groove Salad)"
+                  .value=${cell.radio?.label ?? ''}
+                  @input=${(e: Event) => editRadio('label', val(e))}
                 />
               </div>`
             : ''}
@@ -1229,6 +1277,9 @@ const STYLE = html`
       --cg-audio-active: color-mix(in srgb, var(--bg, #16171d), var(--color-3, #88a6ff) 40%);
       --cg-link-bg: color-mix(in srgb, var(--bg, #16171d), var(--cg-accent) 14%);
       --cg-link-bg-hover: color-mix(in srgb, var(--bg, #16171d), var(--cg-accent) 26%);
+      /* radio (music) tiles: a warm amber tint, distinct from the cool audio blue */
+      --cg-radio: color-mix(in srgb, var(--bg, #16171d), #e0a35a 18%);
+      --cg-radio-hover: color-mix(in srgb, var(--bg, #16171d), #e0a35a 32%);
     }
     .cg-wrap {
       font-family: system-ui, sans-serif;
@@ -1330,6 +1381,22 @@ const STYLE = html`
     .cg-cell.cg-wall {
       background: var(--cg-wall);
       cursor: default;
+    }
+    /* radio (music) tiles: warm tint + a ♪ corner mark hinting "walk on to listen" */
+    .cg-cell.cg-radio {
+      background: var(--cg-radio);
+    }
+    .cg-cell.cg-radio:hover {
+      background: var(--cg-radio-hover);
+    }
+    .cg-cell.cg-radio::after {
+      content: '♪';
+      position: absolute;
+      top: 0;
+      right: 3px;
+      font-size: 55%;
+      opacity: 0.8;
+      color: var(--cg-text);
     }
     /* link kiosks: make them obviously clickable — tint, ring, and a ↗ corner mark */
     .cg-cell.cg-link {
