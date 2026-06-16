@@ -239,6 +239,15 @@ Shared surface; each owns its anchor + trigger. The avatar bubble and toast shar
 **timer-dismiss** lifecycle (build it once, in the bubble first), and the toast adds
 stacking + `role="status"` / `aria-live="polite"`.
 
+**Hover-status reuses the whole popover, not just the chrome.** Hover is pointer-driven
+and element-anchored — identical to `cg-pop`. Don't build a separate float popover for it:
+**fold the occupant's status into the existing cell description popover** (when someone
+stands on a tile, append "name — status" to that tile's `cg-pop`). This is mandatory, not
+just tidy — tokens live in the `aria-hidden`, pointer-transparent `.cg-tokens` overlay, so
+a hover handler on a token can't fire; the *cell* beneath is what's hoverable. (Requires
+rendering `cg-pop` on occupied cells even when they have no description.) Only the
+timer-driven bubble + toast are genuinely separate surfaces.
+
 ---
 
 ## Button refactor
