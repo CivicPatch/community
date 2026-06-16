@@ -34,8 +34,9 @@ export interface RealtimeBackend {
   sendSignal(to: PlayerId, signal: Signal): void
   /** Receive WebRTC signals addressed to me. Returns an unsubscribe fn. */
   onSignal(cb: (from: PlayerId, signal: Signal) => void): () => void
-  /** Update my "audio enabled" flag in presence, so everyone sees it (sticky). */
-  setAudioEnabled(enabled: boolean): void
+  /** Merge a patch into my own presence-synced fields (audioEnabled, status, …), so
+   *  everyone sees the change. Sticky — survives for latecomers via presence. */
+  updateSelf(patch: Partial<Player>): void
   /** Broadcast my speaking state to everyone (for grid-wide avatar reactions). */
   sendVoice(state: VoiceState): void
   /** Receive others' speaking state. Returns an unsubscribe fn. */

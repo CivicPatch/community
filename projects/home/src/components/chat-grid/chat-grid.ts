@@ -415,7 +415,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
       stream.getAudioTracks().forEach((t) => (t.enabled = false)) // the effect enables it when in a room
       meshRef.current?.setMic(stream)
       if (me.current) me.current.audioEnabled = true
-      backendRef.current?.setAudioEnabled(true) // green ring = "enabled audio", synced to all
+      backendRef.current?.updateSelf({ audioEnabled: true }) // green ring = "enabled audio", synced to all
       // meter OUR OWN mic and broadcast the result (speaking + muted) so every
       // client can show us wiggling / muted grid-wide
       if (!meterRef.current)
