@@ -3,6 +3,7 @@
 // Phase 0: movement + collision + click-to-travel + room highlight. No audio yet.
 
 import { html } from 'lit'
+import { repeat } from 'lit/directives/repeat.js'
 import { component, useEffect, useRef, useState } from 'haunted'
 import type { Coord, Grid, GridConfig, Player } from './core/types'
 import { buildGrid, cellAt, coordKey, isWalkable } from './core/grid'
@@ -13,7 +14,12 @@ import { validateGrid } from './core/validate'
 import { renderCellContent } from './render/cell'
 import { createBackend } from './shell/backend'
 import type { RealtimeBackend } from './shell/realtime'
+import { createMeshAudio } from './shell/webrtc'
+import type { MeshAudio } from './shell/webrtc'
 import type { ConnStatus } from './core/fsm/session'
+import type { PeerState } from './core/fsm/peer'
+import { gateTransition, initialGate } from './core/fsm/audio-gate'
+import type { AudioGateEvent, AudioGateState } from './core/fsm/audio-gate'
 
 const STEP_MS = 140 // pace of click-to-travel
 
@@ -48,6 +54,10 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const [others, setOthers] = useState<Player[]>([])
   const [myCoord, setMyCoord] = useState<Coord | null>(null)
   const [status, setStatus] = useState<ConnStatus>('connecting')
+  const [gate, setGate] = useState<AudioGateState>(initialGate)
+  const [muted, setMuted] = useState(false)
+  const [peerStates, setPeerStates] = useState<Record<string, PeerState>>({})
+  const [streams, setStreams] = useState<Record<string, MediaStream | null>>({})
 
   // Mutable mirrors for use inside timers / the mount effect (avoid stale closures).
   const meId = useRef<string>('')
@@ -56,6 +66,10 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   if (!meName.current) meName.current = `Guest ${meId.current.slice(0, 4)}`
   const me = useRef<Player | null>(null)
   const backendRef = useRef<RealtimeBackend | null>(null)
+  const meshRef = useRef<MeshAudio | null>(null)
+  const gateRef = useRef<AudioGateState>(initialGate)
+  const micRef = useRef<MediaStream | null>(null)
+  const streamsRef = useRef<Record<string, MediaStream | null>>({})
   const gridRef = useRef<Grid | null>(null)
   const othersRef = useRef<Player[]>([])
   const travelRef = useRef<{ timer: number | null }>({ timer: null })
@@ -94,6 +108,23 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
         backend.onStatus((s) => {
           if (!cancelled) setStatus(s)
         })
+
+        const mesh = createMeshAudio(player.id, backend)
+        meshRef.current = mesh
+        mesh.onRemoteStream((id, s) => {
+          if (cancelled) return
+          if (s) streamsRef.current = { ...streamsRef.current, [id]: s }
+          else {
+            const next = { ...streamsRef.current }
+            delete next[id]
+            streamsRef.current = next
+          }
+          setStreams(streamsRef.current)
+        })
+        mesh.onPeerStates((states) => {
+          if (!cancelled) setPeerStates(states)
+        })
+
         backend.join(player)
       } catch (err) {
         if (!cancelled) setErrors([String(err)])
@@ -103,10 +134,32 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     return () => {
       cancelled = true
       cancelTravel()
+      meshRef.current?.close()
+      meshRef.current = null
+      micRef.current?.getTracks().forEach((t) => t.stop())
+      micRef.current = null
       backendRef.current?.leave()
       backendRef.current = null
     }
   }, [configUrl])
+
+  // Drive audio peers from room membership: connect to everyone in my audio room
+  // (once I've enabled audio), disconnect from everyone else.
+  useEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh) return
+    const wanted = gate === 'on' && myCoord ? peersInRoom(rooms, myCoord, others) : []
+    mesh.setWantedPeers(wanted)
+  }, [gate, myCoord, others, rooms])
+
+  // Mic transmits ONLY while standing in an audio room and not manually muted.
+  // Toggling track.enabled stops/starts audio without releasing the device, so
+  // it never re-prompts for permission when you step back onto an audio tile.
+  useEffect(() => {
+    const inRoom = !!myCoord && roomOf(rooms, myCoord) !== null
+    const live = gate === 'on' && inRoom && !muted
+    micRef.current?.getAudioTracks().forEach((t) => (t.enabled = live))
+  }, [myCoord, rooms, gate, muted])
 
   const moveTo = (target: Coord) => {
     const g = gridRef.current
@@ -149,6 +202,27 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     if (path && path.length) startTravel(path)
   }
 
+  const requestMic = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      micRef.current = stream
+      stream.getAudioTracks().forEach((t) => (t.enabled = false)) // the effect enables it when in a room
+      meshRef.current?.setMic(stream)
+      dispatchGate('granted')
+    } catch {
+      dispatchGate('denied')
+    }
+  }
+
+  const dispatchGate = (event: AudioGateEvent) => {
+    const [next, effects] = gateTransition(gateRef.current, event)
+    gateRef.current = next
+    setGate(next)
+    if (effects.includes('requestMic')) requestMic()
+  }
+
+  const toggleMute = () => setMuted(!muted) // the mic-live effect applies it to the tracks
+
   if (!grid) return html`${STYLE}<div class="cg-wrap">Loading grid…</div>`
 
   const myRoom = myCoord ? roomOf(rooms, myCoord) : null
@@ -180,8 +254,11 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     }
   }
 
-  const token = (c: Coord, name: string, isMe: boolean) => html`
-    <div class="cg-token ${isMe ? 'cg-me' : ''}" style="--col:${c.col};--row:${c.row}">
+  const token = (c: Coord, name: string, isMe: boolean, connected = false) => html`
+    <div
+      class="cg-token ${isMe ? 'cg-me' : ''} ${connected ? 'cg-connected' : ''}"
+      style="--col:${c.col};--row:${c.row}"
+    >
       <span class="cg-token-name">${name}</span>
       <span class="cg-token-dot"></span>
     </div>
@@ -198,9 +275,43 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
       >
         <div class="cg-cells">${cells}</div>
         <div class="cg-tokens">
-          ${others.map((p) => token(p.coord, p.name, false))}
+          ${others.map((p) => token(p.coord, p.name, false, peerStates[p.id] === 'connected'))}
           ${myCoord ? token(myCoord, meName.current, true) : ''}
         </div>
+      </div>
+      <div class="cg-controls">
+        ${gate === 'on'
+          ? html`<button class="cg-btn" @click=${toggleMute}>
+              ${muted ? '🔇 Unmute' : '🎙️ Mute'}
+            </button>`
+          : html`<button
+              class="cg-btn"
+              ?disabled=${gate === 'requesting'}
+              @click=${() => dispatchGate('enable')}
+            >
+              ${gate === 'requesting'
+                ? 'Requesting mic…'
+                : gate === 'denied'
+                  ? 'Mic blocked — retry'
+                  : '🔊 Enable audio'}
+            </button>`}
+        ${gate === 'on'
+          ? html`<span class="cg-controls-hint">
+              ${myRoom === null
+                ? 'step onto an audio tile to talk'
+                : roomPeers.length === 0
+                  ? 'no one else in this room yet'
+                  : `talking with ${roomPeers.length}`}
+            </span>`
+          : ''}
+      </div>
+      <!-- hidden audio sinks; keyed by peer id so playback isn't interrupted on re-render -->
+      <div class="cg-audio-sinks" hidden>
+        ${repeat(
+          Object.entries(streams).filter(([, s]) => s),
+          ([id]) => id,
+          ([id, s]) => html`<audio autoplay data-peer=${id} .srcObject=${s}></audio>`,
+        )}
       </div>
       <div class="cg-status">
         <span class="cg-badge" data-status=${status}>${status}</span>
@@ -339,6 +450,36 @@ const STYLE = html`
       color: #888;
       font-size: 12px;
       margin-top: 2px;
+    }
+    .cg-controls {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cg-btn {
+      font: inherit;
+      font-size: 13px;
+      padding: 4px 10px;
+      border: 1px solid #444;
+      border-radius: 6px;
+      background: #2b2b2b;
+      color: #ddd;
+      cursor: pointer;
+    }
+    .cg-btn:hover:not(:disabled) {
+      background: #3a3a3a;
+    }
+    .cg-btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    .cg-controls-hint {
+      color: #888;
+      font-size: 12px;
+    }
+    .cg-token.cg-connected .cg-token-dot {
+      box-shadow: 0 0 0 2px #5c6, 0 0 6px #5c6;
     }
     .cg-errors {
       margin-top: 8px;

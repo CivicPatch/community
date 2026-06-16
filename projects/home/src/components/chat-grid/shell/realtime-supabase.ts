@@ -11,14 +11,15 @@
 
 import { createClient } from '@supabase/supabase-js'
 import type { RealtimeChannel } from '@supabase/supabase-js'
-import type { Coord, Player } from '../core/types'
-import type { RealtimeBackend } from './realtime'
+import type { Coord, Player, PlayerId } from '../core/types'
+import type { RealtimeBackend, Signal } from './realtime'
 import { initialStatus, nextStatus } from '../core/fsm/session'
 import type { ConnStatus, SessionEvent } from '../core/fsm/session'
 
 const REJOIN_DELAY_MS = 1500
 
 type MovePayload = { id: string; coord: Coord }
+type SignalPayload = { to: PlayerId; from: PlayerId; signal: Signal }
 
 export const createSupabaseBackend = (
   url: string,
@@ -33,6 +34,8 @@ export const createSupabaseBackend = (
   // OTHER players. Presence decides membership; broadcast updates coords.
   const roster = new Map<string, Player>()
   let listeners: ((others: Player[]) => void)[] = []
+
+  let signalListeners: ((from: PlayerId, signal: Signal) => void)[] = []
 
   let status: ConnStatus = initialStatus
   let statusListeners: ((s: ConnStatus) => void)[] = []
@@ -105,6 +108,11 @@ export const createSupabaseBackend = (
       })
       .on('presence', { event: 'leave' }, syncRoster)
       .on('broadcast', { event: 'move' }, ({ payload }) => onMove(payload as MovePayload))
+      .on('broadcast', { event: 'signal' }, ({ payload }) => {
+        const { to, from, signal } = payload as SignalPayload
+        if (to !== me?.id) return // broadcast reaches everyone; only the target acts
+        for (const cb of signalListeners) cb(from, signal)
+      })
       .subscribe((channelStatus) => {
         if (channelStatus === 'SUBSCRIBED') {
           dispatch('subscribed')
@@ -154,6 +162,23 @@ export const createSupabaseBackend = (
       cb(status)
       return () => {
         statusListeners = statusListeners.filter((l) => l !== cb)
+      }
+    },
+    sendSignal(to, signal) {
+      if (!me || !channel) return
+      const payload: SignalPayload = { to, from: me.id, signal }
+      try {
+        Promise.resolve(channel.send({ type: 'broadcast', event: 'signal', payload })).catch(
+          () => {},
+        )
+      } catch {
+        // ignore — signaling retries naturally (offer/answer/ICE are re-sent)
+      }
+    },
+    onSignal(cb) {
+      signalListeners.push(cb)
+      return () => {
+        signalListeners = signalListeners.filter((l) => l !== cb)
       }
     },
     leave() {
