@@ -13,9 +13,11 @@ import { findPath } from './core/pathfind'
 import { validateGrid } from './core/validate'
 import { renderCellContent } from './render/cell'
 import { createBackend } from './shell/backend'
-import type { RealtimeBackend } from './shell/realtime'
+import type { RealtimeBackend, VoiceState } from './shell/realtime'
 import { createMeshAudio } from './shell/webrtc'
 import type { MeshAudio } from './shell/webrtc'
+import { createMeter } from './shell/meter'
+import type { Meter } from './shell/meter'
 import type { ConnStatus } from './core/fsm/session'
 import type { PeerState } from './core/fsm/peer'
 import { gateTransition, initialGate } from './core/fsm/audio-gate'
@@ -60,6 +62,8 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const [streams, setStreams] = useState<Record<string, MediaStream | null>>({})
   const [mutedPeers, setMutedPeers] = useState<Set<string>>(new Set())
   const [blockedPeers, setBlocked] = useState<Set<string>>(new Set())
+  const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null)
+  const [voices, setVoices] = useState<Record<string, VoiceState>>({})
 
   // Mutable mirrors for use inside timers / the mount effect (avoid stale closures).
   const meId = useRef<string>('')
@@ -69,6 +73,8 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const me = useRef<Player | null>(null)
   const backendRef = useRef<RealtimeBackend | null>(null)
   const meshRef = useRef<MeshAudio | null>(null)
+  const meterRef = useRef<Meter | null>(null)
+  const voicesRef = useRef<Record<string, VoiceState>>({})
   const gateRef = useRef<AudioGateState>(initialGate)
   const micRef = useRef<MediaStream | null>(null)
   const streamsRef = useRef<Record<string, MediaStream | null>>({})
@@ -110,6 +116,9 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
         backend.onStatus((s) => {
           if (!cancelled) setStatus(s)
         })
+        backend.onVoice((from, state) => {
+          if (!cancelled) updateVoice(from, state)
+        })
 
         const mesh = createMeshAudio(player.id, backend)
         meshRef.current = mesh
@@ -136,6 +145,8 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     return () => {
       cancelled = true
       cancelTravel()
+      meterRef.current?.stop()
+      meterRef.current = null
       meshRef.current?.close()
       meshRef.current = null
       micRef.current?.getTracks().forEach((t) => t.stop())
@@ -222,12 +233,26 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     if (path && path.length) startTravel(path)
   }
 
+  const updateVoice = (id: string, state: VoiceState) => {
+    voicesRef.current = { ...voicesRef.current, [id]: state }
+    setVoices(voicesRef.current)
+  }
+
   const requestMic = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       micRef.current = stream
       stream.getAudioTracks().forEach((t) => (t.enabled = false)) // the effect enables it when in a room
       meshRef.current?.setMic(stream)
+      // meter OUR OWN mic and broadcast the result, so every client can show us
+      // wiggling grid-wide (no need to analyze audio we don't receive)
+      if (!meterRef.current)
+        meterRef.current = createMeter((samples) => {
+          const mine = samples[meId.current] ?? { speaking: false, bucket: 0 }
+          updateVoice(meId.current, mine)
+          backendRef.current?.sendVoice(mine)
+        })
+      meterRef.current.add(meId.current, stream)
       dispatchGate('granted')
     } catch {
       dispatchGate('denied')
@@ -290,15 +315,21 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     }
   }
 
-  const token = (c: Coord, name: string, isMe: boolean, connected = false) => html`
-    <div
-      class="cg-token ${isMe ? 'cg-me' : ''} ${connected ? 'cg-connected' : ''}"
-      style="--col:${c.col};--row:${c.row}"
-    >
-      <span class="cg-token-name">${name}</span>
-      <span class="cg-token-dot"></span>
-    </div>
-  `
+  const token = (c: Coord, name: string, isMe: boolean, connected = false, voice?: VoiceState) => {
+    const speaking = voice?.speaking ?? false
+    const shake = voice?.bucket ?? 0
+    const classes = ['cg-token']
+    if (isMe) classes.push('cg-me')
+    if (connected) classes.push('cg-connected') // green ring — in your blob
+    if (speaking && connected) classes.push('cg-speaking') // white ring — talking in your blob
+    if (speaking) classes.push('cg-wiggling') // shake — anyone talking, grid-wide
+    return html`
+      <div class=${classes.join(' ')} style="--col:${c.col};--row:${c.row};--shake:${shake}">
+        <span class="cg-token-name">${name}</span>
+        <span class="cg-token-dot"></span>
+      </div>
+    `
+  }
 
   return html`
     ${STYLE}
@@ -311,8 +342,12 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
       >
         <div class="cg-cells">${cells}</div>
         <div class="cg-tokens">
-          ${others.map((p) => token(p.coord, p.name, false, peerStates[p.id] === 'connected'))}
-          ${myCoord ? token(myCoord, meName.current, true) : ''}
+          ${others.map((p) =>
+            token(p.coord, p.name, false, peerStates[p.id] === 'connected', voices[p.id]),
+          )}
+          ${myCoord
+            ? token(myCoord, meName.current, true, myRoom !== null, voices[meId.current])
+            : ''}
         </div>
       </div>
       <div class="cg-controls">
@@ -350,35 +385,41 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
                     const connected = peerStates[p.id] === 'connected'
                     const isMuted = mutedPeers.has(p.id)
                     const isBlocked = blockedPeers.has(p.id)
+                    const menuOpen = menuOpenFor === p.id
+                    const act = (fn: () => void) => () => {
+                      fn()
+                      setMenuOpenFor(null)
+                    }
                     return html`<li class="cg-roster-item ${isBlocked ? 'cg-blocked' : ''}">
                       <span class="cg-roster-status ${connected ? 'cg-on' : ''}" aria-hidden="true"></span>
                       <span class="cg-roster-name">${p.name}</span>
                       <span class="cg-visually-hidden">
-                        ${isBlocked ? 'blocked' : connected ? 'connected' : 'connecting'}
+                        ${isBlocked ? 'blocked' : connected ? 'connected' : 'connecting'}${isMuted ? ', muted' : ''}
                       </span>
-                      ${isBlocked
-                        ? html`<button
-                            class="cg-btn cg-roster-btn"
-                            aria-label=${`Unblock ${p.name}`}
-                            @click=${() => toggleBlockPeer(p.id)}
-                          >
-                            Unblock
-                          </button>`
-                        : html`<button
-                              class="cg-btn cg-roster-btn"
-                              aria-pressed=${isMuted}
-                              aria-label=${`${isMuted ? 'Unmute' : 'Mute'} ${p.name}`}
-                              @click=${() => toggleMutePeer(p.id)}
-                            >
-                              ${isMuted ? '🔇 Muted' : '🔈 Mute'}
-                            </button>
-                            <button
-                              class="cg-btn cg-roster-btn"
-                              aria-label=${`Block ${p.name}`}
-                              @click=${() => toggleBlockPeer(p.id)}
-                            >
-                              Block
-                            </button>`}
+                      <button
+                        class="cg-btn cg-roster-menu-btn"
+                        aria-haspopup="menu"
+                        aria-expanded=${menuOpen}
+                        aria-label=${`Actions for ${p.name}`}
+                        @keydown=${(e: KeyboardEvent) => e.key === 'Escape' && setMenuOpenFor(null)}
+                        @click=${() => setMenuOpenFor(menuOpen ? null : p.id)}
+                      >
+                        ⋯
+                      </button>
+                      ${menuOpen
+                        ? html`<div class="cg-roster-menu" role="menu">
+                            ${isBlocked
+                              ? html`<button class="cg-btn" role="menuitem" @click=${act(() => toggleBlockPeer(p.id))}>
+                                  Unblock
+                                </button>`
+                              : html`<button class="cg-btn" role="menuitem" @click=${act(() => toggleMutePeer(p.id))}>
+                                    ${isMuted ? 'Unmute' : 'Mute'}
+                                  </button>
+                                  <button class="cg-btn" role="menuitem" @click=${act(() => toggleBlockPeer(p.id))}>
+                                    Block
+                                  </button>`}
+                          </div>`
+                        : ''}
                     </li>`
                   })}
                 </ul>`}
@@ -578,6 +619,28 @@ const STYLE = html`
     .cg-token.cg-connected .cg-token-dot {
       box-shadow: 0 0 0 2px #5c6, 0 0 6px #5c6;
     }
+    /* speaking ring (VAD): only for people in YOUR blob — the "light" indicator */
+    .cg-token.cg-speaking .cg-token-dot {
+      box-shadow: 0 0 0 2px #fff, 0 0 10px 2px rgba(255, 255, 255, 0.6);
+    }
+    /* wiggle (audio-reactive, amplitude = --shake): grid-wide, anyone talking */
+    .cg-token.cg-wiggling .cg-token-dot {
+      animation: cg-shake 0.16s linear infinite;
+    }
+    @keyframes cg-shake {
+      0%,
+      100% {
+        transform: translateX(calc(var(--shake, 0) * -1px));
+      }
+      50% {
+        transform: translateX(calc(var(--shake, 0) * 1px));
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cg-token.cg-wiggling .cg-token-dot {
+        animation: none;
+      } /* keep the ring, drop the motion */
+    }
     .cg-roster {
       margin-top: 8px;
     }
@@ -625,6 +688,18 @@ const STYLE = html`
     }
     .cg-roster-btn {
       flex: 0 0 auto;
+    }
+    .cg-roster-menu-btn {
+      flex: 0 0 auto;
+      min-width: 44px;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .cg-roster-menu {
+      flex-basis: 100%;
+      display: flex;
+      gap: 6px;
+      padding-left: 17px; /* line up under the name, past the status dot */
     }
     .cg-visually-hidden {
       position: absolute;
