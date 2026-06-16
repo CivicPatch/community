@@ -12,7 +12,11 @@ import { clearCell, setCell, serializeConfig, setGridMeta } from './core/edit'
 import { clearDraft, loadDraft, saveDraft } from './shell/draft'
 import type { Draft } from './shell/draft'
 import { loadIdentity, saveIdentity } from './shell/identity'
-import { BUBBLE_MS, bubbleVisible, rankRoster } from './core/presence'
+import { loadSoundPrefs, saveSoundPrefs } from './shell/sound-prefs'
+import type { SoundPrefs } from './shell/sound-prefs'
+import { createPinger } from './shell/ping'
+import type { Pinger } from './shell/ping'
+import { BUBBLE_MS, bubbleVisible, diffPresence, rankRoster } from './core/presence'
 import { buildRooms, peersInRoom, roomOf } from './core/rooms'
 import { applyDelta, canEnter, keyToDelta } from './core/movement'
 import { findPath } from './core/pathfind'
@@ -120,6 +124,8 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   // status (== chat): the editable "You" field, and a tick that re-renders bubbles on fade
   const [statusDraft, setStatusDraft] = useState('')
   const [nowMs, setNowMs] = useState(() => Date.now())
+  // notification sounds the user has subscribed to (persisted)
+  const [soundPrefs, setSoundPrefs] = useState<SoundPrefs>(() => loadSoundPrefs())
   // map editor
   const [config, setConfig] = useState<GridConfig | null>(null)
   const [mapMode, setMapMode] = useState(false)
@@ -147,6 +153,9 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const backendRef = useRef<RealtimeBackend | null>(null)
   const meshRef = useRef<MeshAudio | null>(null)
   const meterRef = useRef<Meter | null>(null)
+  const pingerRef = useRef<Pinger | null>(null)
+  const prevPlayersRef = useRef<Player[] | null>(null) // last roster snapshot, for diffing
+  const soundPrefsRef = useRef<SoundPrefs>(soundPrefs) // read inside the diff effect
   const voicesRef = useRef<Record<string, VoiceState>>({})
   const mutedRef = useRef(false)
   const gateRef = useRef<AudioGateState>(initialGate)
@@ -158,6 +167,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
 
   gridRef.current = grid
   othersRef.current = others
+  soundPrefsRef.current = soundPrefs
 
   const cancelTravel = () => {
     if (travelRef.current.timer !== null) {
@@ -199,6 +209,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
 
         const backend = createBackend()
         backendRef.current = backend
+        pingerRef.current = createPinger()
         backend.onPlayers((o) => {
           if (!cancelled) setOthers(o)
         })
@@ -237,6 +248,8 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
       cancelTravel()
       meterRef.current?.stop()
       meterRef.current = null
+      pingerRef.current?.close()
+      pingerRef.current = null
       meshRef.current?.close()
       meshRef.current = null
       micRef.current?.getTracks().forEach((t) => t.stop())
@@ -462,9 +475,34 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     me.current.name = name
     me.current.avatar = avatarDraft
     saveIdentity({ name, avatar: avatarDraft })
+    pingerRef.current?.resume() // the Join click is our autoplay-unlock gesture
     backendRef.current?.join(me.current)
     setJoined(true)
   }
+
+  const toggleSound = (key: keyof SoundPrefs) => {
+    setSoundPrefs((p) => {
+      const next = { ...p, [key]: !p[key] }
+      saveSoundPrefs(next)
+      return next
+    })
+  }
+
+  // Notification chimes: diff each roster snapshot against the previous and play the
+  // sounds the user is subscribed to. The first snapshot after joining is the silent
+  // baseline (no chime for everyone already present); one chime per kind per snapshot.
+  useEffect(() => {
+    const prev = prevPlayersRef.current
+    prevPlayersRef.current = others
+    if (prev === null) return
+    const { joined: arrived, left, statusPosted } = diffPresence(prev, others)
+    const prefs = soundPrefsRef.current
+    const pinger = pingerRef.current
+    if (!pinger) return
+    if (prefs.joinLeave && arrived.length) pinger.play('join')
+    if (prefs.joinLeave && left.length) pinger.play('leave')
+    if (prefs.status && statusPosted.length) pinger.play('status')
+  }, [others])
 
   // Commit the "You" status (== chat). Empty clears it. No-op if unchanged, so a blur
   // with no edit doesn't re-track presence. Stamps statusAt so the bubble can fade.
@@ -719,8 +757,12 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
               <button class="cg-btn" @click=${() => setOverlay({ kind: 'json' })}>📋 View / export JSON</button>`
           : ''}
         ${gate === 'on'
-          ? html`<button class="cg-btn" @click=${toggleMute}>
-              ${muted ? '🔇 Unmute' : '🎙️ Mute'}
+          ? html`<button
+              class="cg-btn cg-mic ${muted ? 'cg-mic-muted' : ''}"
+              aria-pressed=${muted}
+              @click=${toggleMute}
+            >
+              🎙️ ${muted ? 'Unmute' : 'Mute'}
             </button>`
           : html`<button
               class="cg-btn"
@@ -733,15 +775,6 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
                   ? 'Mic blocked — retry'
                   : '🔊 Enable audio'}
             </button>`}
-        ${gate === 'on'
-          ? html`<span class="cg-controls-hint">
-              ${myRoom === null
-                ? 'step onto an audio tile to talk'
-                : roomPeers.length === 0
-                  ? 'no one else in this room yet'
-                  : `talking with ${connectedCount}`}
-            </span>`
-          : ''}
       </div>
       <div class="cg-stage">
         <div
@@ -842,6 +875,27 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
                 `}
           </section>`
         : ''}
+        ${joined
+          ? html`<section class="cg-sounds" aria-label="Notification sounds">
+              <h4 class="cg-roster-head">Sounds</h4>
+              <label class="cg-sound-opt">
+                <input
+                  type="checkbox"
+                  .checked=${soundPrefs.joinLeave}
+                  @change=${() => toggleSound('joinLeave')}
+                />
+                Sound when someone joins or leaves
+              </label>
+              <label class="cg-sound-opt">
+                <input
+                  type="checkbox"
+                  .checked=${soundPrefs.status}
+                  @change=${() => toggleSound('status')}
+                />
+                Sound when someone posts a status
+              </label>
+            </section>`
+          : ''}
         </div>
       </div>
       <!-- hidden audio sinks; keyed by peer id so playback isn't interrupted on re-render -->
@@ -862,9 +916,15 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
         <span class="cg-badge" data-status=${status}>${status}</span>
         <strong>${meName.current}</strong>
         ${myCoord ? html` @ ${myCoord.col},${myCoord.row}` : ''} ·
-        ${myRoom === null
-          ? 'not in an audio room'
-          : `audio room #${myRoom} — ${roomPeers.length + 1} here`}
+        ${gate === 'on'
+          ? myRoom === null
+            ? 'step onto an audio tile to talk'
+            : roomPeers.length === 0
+              ? 'no one else in this room yet'
+              : `talking with ${connectedCount}`
+          : myRoom === null
+            ? 'not in an audio room'
+            : `audio room #${myRoom} — ${roomPeers.length + 1} here`}
         · ${others.length} other${others.length === 1 ? '' : 's'} online
         <div class="cg-hint">click the grid, then move with WASD / arrows or click a cell</div>
       </div>
@@ -1549,6 +1609,11 @@ const STYLE = html`
       text-decoration: none;
       cursor: pointer;
     }
+    /* mic muted: accent-tinted so "you're muted" is obvious at a glance */
+    .cg-mic-muted {
+      background: color-mix(in srgb, var(--cg-accent) 18%, var(--cg-cell));
+      border-color: var(--cg-accent);
+    }
     .cg-btn:hover:not(:disabled) {
       background: var(--cg-cell-hover);
     }
@@ -1724,9 +1789,21 @@ const STYLE = html`
       border: 1px solid var(--cg-border);
       font-size: 13px;
     }
-    .cg-controls-hint {
-      color: var(--cg-dim);
+    .cg-sounds {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
       font-size: 12px;
+      color: var(--cg-dim);
+    }
+    .cg-sound-opt {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .cg-sound-opt input {
+      cursor: pointer;
     }
     .cg-token.cg-enabled .cg-token-avatar {
       box-shadow: 0 0 0 2px var(--cg-enabled);

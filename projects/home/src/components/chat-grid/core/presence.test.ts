@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUBBLE_MS, bubbleVisible, rankRoster } from './presence'
+import { BUBBLE_MS, bubbleVisible, diffPresence, rankRoster } from './presence'
 import type { Player, RoomId } from './types'
 
 const player = (id: string, col: number, row: number, name = id): Player => ({
@@ -53,5 +53,44 @@ describe('rankRoster', () => {
     const others = [player('far', 8, 0), player('near', 3, 0), player('mid', 5, 0)]
     const { grid } = rankRoster(others, rooms, { col: 0, row: 0 })
     expect(grid.map((p) => p.id)).toEqual(['near', 'mid', 'far'])
+  })
+})
+
+describe('diffPresence', () => {
+  const withStatus = (p: Player, status: string, statusAt: number): Player => ({
+    ...p,
+    status,
+    statusAt,
+  })
+
+  it('detects joins and leaves by id', () => {
+    const prev = [player('a', 0, 0), player('b', 1, 0)]
+    const next = [player('a', 0, 0), player('c', 2, 0)]
+    const d = diffPresence(prev, next)
+    expect(d.joined).toEqual(['c'])
+    expect(d.left).toEqual(['b'])
+    expect(d.statusPosted).toEqual([])
+  })
+
+  it('counts a newcomer with a status as a join, not a status post', () => {
+    const prev: Player[] = []
+    const next = [withStatus(player('a', 0, 0), 'hi', 100)]
+    const d = diffPresence(prev, next)
+    expect(d.joined).toEqual(['a'])
+    expect(d.statusPosted).toEqual([])
+  })
+
+  it('flags a status post when statusAt changes to a non-empty status', () => {
+    const prev = [withStatus(player('a', 0, 0), 'old', 100)]
+    const next = [withStatus(player('a', 0, 0), 'new', 200)]
+    expect(diffPresence(prev, next).statusPosted).toEqual(['a'])
+  })
+
+  it('ignores movement (statusAt unchanged) and status clears (empty)', () => {
+    const a1 = withStatus(player('a', 0, 0), 'hi', 100)
+    const moved = withStatus(player('a', 5, 5), 'hi', 100) // same statusAt
+    expect(diffPresence([a1], [moved]).statusPosted).toEqual([])
+    const cleared = { ...player('a', 0, 0), status: '', statusAt: 200 }
+    expect(diffPresence([a1], [cleared]).statusPosted).toEqual([])
   })
 })
