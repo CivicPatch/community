@@ -6,18 +6,6 @@
   "cells": [
     { "coord": { "col": 0, "row": 0 }, "char": "🚪", "description": { "title": "Welcome", "body": "The front door. WASD to move around, click a tile to walk there." } },
 
-    { "coord": { "col": 0, "row": 1 }, "color": "#2a241e", "char": "P" },
-    { "coord": { "col": 1, "row": 1 }, "color": "#2a241e", "char": "R" },
-    { "coord": { "col": 2, "row": 1 }, "color": "#2a241e", "char": "O" },
-    { "coord": { "col": 3, "row": 1 }, "color": "#2a241e", "char": "J" },
-    { "coord": { "col": 4, "row": 1 }, "color": "#2a241e", "char": "E" },
-    { "coord": { "col": 5, "row": 1 }, "color": "#2a241e", "char": "C" },
-    { "coord": { "col": 6, "row": 1 }, "color": "#2a241e", "char": "T" },
-    { "coord": { "col": 7, "row": 1 }, "color": "#2a241e", "char": "S" },
-
-    { "coord": { "col": 0, "row": 2 }, "link": { "url": "https://civicpatch.org", "label": "🧩" }, "description": { "title": "CivicPatch", "body": "Open-source civic tooling.", "links": [{ "url": "https://civicpatch.org", "label": "Open civicpatch.org" }] } },
-    { "coord": { "col": 2, "row": 2 }, "link": { "url": "https://civicmirror.app", "label": "🪞" }, "description": { "title": "CivicMirror", "body": "Mirror of public civic data.", "links": [{ "url": "https://civicmirror.app", "label": "Open civicmirror.app" }] } },
-
     { "coord": { "col": 0, "row": 4 }, "color": "#2a241e", "char": "M" },
     { "coord": { "col": 1, "row": 4 }, "color": "#2a241e", "char": "I" },
     { "coord": { "col": 2, "row": 4 }, "color": "#2a241e", "char": "S" },
