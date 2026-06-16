@@ -11,6 +11,11 @@
       body {
         margin: 2rem;
       }
+      /* widen the column for the grid + sidebar on THIS page only — the shared
+         .content cap (60rem, src/index.css) is right for the text-heavy site pages */
+      .content {
+        width: min(100% - 4rem, 76rem);
+      }
       .note {
         max-width: 40rem;
         font-size: 0.9rem;
