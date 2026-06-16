@@ -56,3 +56,7 @@
       url: https://mastodon.social/@pahlkadot.rss
     - type: "discussion_event"
       url: https://bsky.app/profile/did:plc:wwtm5peukhmsjizz3vjkkuxb/rss
+- name: news
+  feeds:
+    - type: "news_event"
+      url: https://www.reddit.com/r/civictech/.rss
