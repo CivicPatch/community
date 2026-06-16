@@ -8,6 +8,7 @@ import {
   inBounds,
   isAudio,
   isWalkable,
+  nearestFreeCell,
   neighbors,
 } from './grid'
 
@@ -63,5 +64,26 @@ describe('neighbors', () => {
     expect(neighbors(grid, { col: 2, row: 1 })).toHaveLength(4)
     expect(neighbors(grid, { col: 0, row: 1 })).toHaveLength(3)
     expect(neighbors(grid, { col: 0, row: 0 })).toHaveLength(2)
+  })
+})
+
+describe('nearestFreeCell', () => {
+  it('returns the cell itself when it is already free', () => {
+    expect(nearestFreeCell(grid, { col: 3, row: 3 }, new Set())).toEqual({ col: 3, row: 3 })
+  })
+
+  it('hops to an adjacent cell when the start is occupied', () => {
+    const occupied = new Set([coordKey({ col: 3, row: 3 })])
+    const free = nearestFreeCell(grid, { col: 3, row: 3 }, occupied)
+    expect(coordsEqual(free, { col: 3, row: 3 })).toBe(false)
+    expect(neighbors(grid, { col: 3, row: 3 }).some((n) => coordsEqual(n, free))).toBe(true)
+  })
+
+  it('skips walls and occupied cells', () => {
+    // (2,2) is a wall in the shared fixture; occupy (3,3) too
+    const occupied = new Set([coordKey({ col: 3, row: 3 })])
+    const free = nearestFreeCell(grid, { col: 3, row: 3 }, occupied)
+    expect(isWalkable(grid, free)).toBe(true)
+    expect(occupied.has(coordKey(free))).toBe(false)
   })
 })

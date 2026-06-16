@@ -6,7 +6,7 @@ import { html } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
 import { component, useEffect, useRef, useState } from 'haunted'
 import type { Coord, Grid, GridConfig, Player } from './core/types'
-import { buildGrid, cellAt, coordKey, isWalkable } from './core/grid'
+import { buildGrid, cellAt, coordKey, coordsEqual, isWalkable, nearestFreeCell } from './core/grid'
 import { buildRooms, peersInRoom, roomOf } from './core/rooms'
 import { applyDelta, canEnter, keyToDelta } from './core/movement'
 import { findPath } from './core/pathfind'
@@ -160,6 +160,16 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     const live = gate === 'on' && inRoom && !muted
     micRef.current?.getAudioTracks().forEach((t) => (t.enabled = live))
   }, [myCoord, rooms, gate, muted])
+
+  // Cells are exclusive, but two clients can land on the same one (e.g. both spawn
+  // there before presence syncs). Deterministic tiebreak: the lowest id keeps the
+  // cell; anyone else hops to the nearest free cell.
+  useEffect(() => {
+    const g = gridRef.current
+    if (!g || !myCoord) return
+    const sharing = others.some((p) => coordsEqual(p.coord, myCoord) && p.id < meId.current)
+    if (sharing) moveTo(nearestFreeCell(g, myCoord, occupiedSet(others)))
+  }, [others, myCoord])
 
   const moveTo = (target: Coord) => {
     const g = gridRef.current
