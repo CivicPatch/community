@@ -8,7 +8,7 @@ import { ref } from 'lit/directives/ref.js'
 import { component, useEffect, useRef, useState } from 'haunted'
 import type { Cell, Coord, Grid, GridConfig, Player } from './core/types'
 import { buildGrid, cellAt, coordKey, coordsEqual, isWalkable, nearestFreeCell } from './core/grid'
-import { clearCell, setCell, serializeConfig } from './core/edit'
+import { clearCell, setCell, serializeConfig, setGridMeta } from './core/edit'
 import { clearDraft, loadDraft, saveDraft } from './shell/draft'
 import type { Draft } from './shell/draft'
 import { buildRooms, peersInRoom, roomOf } from './core/rooms'
@@ -57,6 +57,20 @@ const focusEl = (el?: Element) => {
   if (el instanceof HTMLElement) el.focus()
 }
 
+const inputValue = (e: Event) => (e.target as HTMLInputElement).value
+
+// labels for the mutually-exclusive pickers in the cell editor
+const ROLE_LABELS = { floor: 'Floor', wall: 'Wall', audio: '🔊 Audio', link: '🔗 Link' } as const
+const GLYPH_LABELS = { none: 'None', char: 'Character', svg: 'Inline SVG' } as const
+
+// At most one modal is open at a time — one tagged value, not three booleans that
+// could contradict each other. The cell editor carries the cell it's editing.
+type Overlay =
+  | { kind: 'none' }
+  | { kind: 'cell'; cell: Cell }
+  | { kind: 'json' }
+  | { kind: 'settings' }
+
 // "5 minutes ago" style label for the draft's last-edited time
 const formatAgo = (ms: number): string => {
   const sec = Math.round((Date.now() - ms) / 1000)
@@ -94,9 +108,13 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   // map editor
   const [config, setConfig] = useState<GridConfig | null>(null)
   const [mapMode, setMapMode] = useState(false)
-  const [editCell, setEditCell] = useState<Cell | null>(null)
+  const [overlay, setOverlay] = useState<Overlay>({ kind: 'none' })
   const [draft, setDraft] = useState<Draft | null>(null)
-  const [showJson, setShowJson] = useState(false)
+  // the cell being edited, if any — read off the single overlay state
+  const editCell = overlay.kind === 'cell' ? overlay.cell : null
+  const closeOverlay = () => setOverlay({ kind: 'none' })
+  const setEditCell = (cell: Cell | null) =>
+    setOverlay(cell ? { kind: 'cell', cell } : { kind: 'none' })
 
   // Mutable mirrors for use inside timers / the mount effect (avoid stale closures).
   // Stable per-TAB id: survives a refresh (so a reload reuses the same presence
@@ -248,6 +266,19 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     if (sharing) moveTo(nearestFreeCell(g, myCoord, occupiedSet(others)))
   }, [others, myCoord])
 
+  // Esc closes whatever overlay is open, wherever focus happens to be. Attached
+  // only while something is open, so it never interferes with normal play.
+  useEffect(() => {
+    if (overlay.kind === 'none' && !menuOpenFor) return
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      closeOverlay()
+      setMenuOpenFor(null)
+    }
+    window.addEventListener('keydown', onEsc)
+    return () => window.removeEventListener('keydown', onEsc)
+  }, [overlay, menuOpenFor])
+
   const moveTo = (target: Coord) => {
     const g = gridRef.current
     if (!g) return
@@ -298,8 +329,36 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
 
   // --- map editor: edit the working cell, then commit/clear into the draft config ---
   const editPatch = (patch: Partial<Cell>) => editCell && setEditCell({ ...editCell, ...patch })
+  // A tile is exactly ONE of these (mutually exclusive behavior). Derived from the
+  // cell so the radio always reflects the real state — no separate UI flag to desync.
+  const cellRole = (c: Cell): 'floor' | 'wall' | 'audio' | 'link' =>
+    c.link ? 'link' : c.audio ? 'audio' : c.walkable === false ? 'wall' : 'floor'
+  const setRole = (role: ReturnType<typeof cellRole>) => {
+    if (role === 'link') editPatch({ link: editCell?.link ?? { url: '' }, audio: undefined, walkable: false })
+    else if (role === 'audio') editPatch({ audio: true, link: undefined, walkable: undefined })
+    else if (role === 'wall') editPatch({ walkable: false, audio: undefined, link: undefined })
+    else editPatch({ walkable: undefined, audio: undefined, link: undefined })
+  }
+  // Foreground glyph: char and inline SVG are mutually exclusive (only one renders).
+  const cellGlyph = (c: Cell): 'none' | 'char' | 'svg' =>
+    c.char !== undefined ? 'char' : c.svg !== undefined ? 'svg' : 'none'
+  const setGlyph = (g: ReturnType<typeof cellGlyph>) => {
+    if (g === 'char') editPatch({ char: editCell?.char ?? '', svg: undefined })
+    else if (g === 'svg') editPatch({ svg: editCell?.svg ?? '', char: undefined })
+    else editPatch({ char: undefined, svg: undefined })
+  }
   const applyEdit = () => {
-    if (config && editCell) editConfig(setCell(config, editCell))
+    if (config && editCell) {
+      // drop fields the user revealed but left blank, so they don't pollute the JSON
+      const c: Cell = { ...editCell }
+      if (c.char === '') delete c.char
+      if (c.svg === '') delete c.svg
+      if (c.link && !c.link.url.trim()) {
+        delete c.link
+        if (c.walkable === false) delete c.walkable // an unfinished link reverts to floor
+      }
+      editConfig(setCell(config, c))
+    }
     setEditCell(null)
   }
   const clearEditedCell = () => {
@@ -530,7 +589,8 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
           ${mapMode ? '✓ Done editing' : '🗺️ Map Editor'}
         </button>
         ${mapMode
-          ? html`<button class="cg-btn" @click=${() => setShowJson(true)}>📋 View / export JSON</button>`
+          ? html`<button class="cg-btn" @click=${() => setOverlay({ kind: 'settings' })}>⚙ Grid settings</button>
+              <button class="cg-btn" @click=${() => setOverlay({ kind: 'json' })}>📋 View / export JSON</button>`
           : ''}
         ${gate === 'on'
           ? html`<button class="cg-btn" @click=${toggleMute}>
@@ -688,53 +748,143 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
             ${errors.map((e) => html`<li>${e}</li>`)}
           </ul>`
         : ''}
-      ${editCell ? cellEditor(editCell) : ''}
-      ${showJson && config
-        ? html`<div class="cg-modal-backdrop" @click=${() => setShowJson(false)}>
-            <div
-              class="cg-modal cg-modal-wide"
-              role="dialog"
-              aria-modal="true"
-              tabindex="-1"
-              aria-label="Map JSON"
-              ${ref(focusEl)}
-              @click=${(e: Event) => e.stopPropagation()}
-              @keydown=${(e: KeyboardEvent) => e.key === 'Escape' && setShowJson(false)}
-            >
-              <h3 class="cg-modal-title">Map JSON</h3>
-              <p class="cg-modal-hint">
-                Copy this, then <strong>Edit on GitHub</strong> → paste into
-                <code>public/grid.json</code> → <em>Propose changes</em> (opens a PR).
-              </p>
-              <textarea class="cg-json" readonly .value=${serializeConfig(config)}></textarea>
-              <div class="cg-modal-actions">
-                <button class="cg-btn" @click=${() => setShowJson(false)}>Close</button>
-                <a class="cg-btn" href=${GITHUB_EDIT_URL} target="_blank" rel="noopener noreferrer">
-                  Edit on GitHub ↗
-                </a>
-                <button class="cg-btn cg-btn-primary" @click=${copyJson}>Copy JSON</button>
-              </div>
-            </div>
-          </div>`
-        : ''}
+      ${renderOverlay()}
     </div>
   `
 
-  function cellEditor(cell: Cell) {
-    const val = (e: Event) => (e.target as HTMLInputElement).value
-    const checked = (e: Event) => (e.target as HTMLInputElement).checked
-    return html`<div class="cg-modal-backdrop" @click=${() => setEditCell(null)}>
+  // The single open modal, chosen by the overlay's tag. Each case owns its markup;
+  // there's no way to render two at once.
+  function renderOverlay() {
+    switch (overlay.kind) {
+      case 'none':
+        return ''
+      case 'cell':
+        return modal(
+          `Edit cell ${overlay.cell.coord.col}, ${overlay.cell.coord.row}`,
+          cellEditor(overlay.cell),
+        )
+      case 'json':
+        return config ? modal('Map JSON', jsonModal(config), 'cg-modal-wide') : ''
+      case 'settings':
+        return config ? modal('Grid settings', settingsModal(config)) : ''
+    }
+  }
+
+  // Shared modal chrome: backdrop (click to dismiss) + focusable dialog (Esc to
+  // dismiss, handled globally). Only the inner body differs per modal.
+  function modal(label: string, body: unknown, extra = '') {
+    return html`<div class="cg-modal-backdrop" @click=${closeOverlay}>
       <div
-        class="cg-modal"
+        class="cg-modal ${extra}"
         role="dialog"
         aria-modal="true"
         tabindex="-1"
-        aria-label=${`Edit cell ${cell.coord.col}, ${cell.coord.row}`}
+        aria-label=${label}
         ${ref(focusEl)}
         @click=${(e: Event) => e.stopPropagation()}
-        @keydown=${(e: KeyboardEvent) => e.key === 'Escape' && setEditCell(null)}
       >
+        ${body}
+      </div>
+    </div>`
+  }
+
+  function jsonModal(c: GridConfig) {
+    return html`
+      <h3 class="cg-modal-title">Map JSON</h3>
+      <p class="cg-modal-hint">
+        Copy this, then <strong>Edit on GitHub</strong> → paste into
+        <code>public/grid.json</code> → <em>Propose changes</em> (opens a PR).
+      </p>
+      <textarea class="cg-json" readonly .value=${serializeConfig(c)}></textarea>
+      <div class="cg-modal-actions">
+        <button class="cg-btn" @click=${closeOverlay}>Close</button>
+        <a class="cg-btn" href=${GITHUB_EDIT_URL} target="_blank" rel="noopener noreferrer">
+          Edit on GitHub ↗
+        </a>
+        <button class="cg-btn cg-btn-primary" @click=${copyJson}>Copy JSON</button>
+      </div>
+    `
+  }
+
+  function settingsModal(c: GridConfig) {
+    const num = (e: Event) => Number(inputValue(e))
+    const set = (patch: Parameters<typeof setGridMeta>[1]) => editConfig(setGridMeta(c, patch))
+    return html`
+      <h3 class="cg-modal-title">Grid settings</h3>
+      <div class="cg-field">
+        <label>Columns</label>
+        <input type="number" min="1" .value=${String(c.columns)} @input=${(e: Event) => set({ columns: num(e) || 1 })} />
+      </div>
+      <div class="cg-field">
+        <label>Rows</label>
+        <input type="number" min="1" .value=${String(c.rows)} @input=${(e: Event) => set({ rows: num(e) || 1 })} />
+      </div>
+      <div class="cg-field">
+        <label>Spawn col</label>
+        <input
+          type="number"
+          min="0"
+          .value=${String(c.spawn?.col ?? 0)}
+          @input=${(e: Event) => set({ spawn: { col: num(e) || 0, row: c.spawn?.row ?? 0 } })}
+        />
+      </div>
+      <div class="cg-field">
+        <label>Spawn row</label>
+        <input
+          type="number"
+          min="0"
+          .value=${String(c.spawn?.row ?? 0)}
+          @input=${(e: Event) => set({ spawn: { col: c.spawn?.col ?? 0, row: num(e) || 0 } })}
+        />
+      </div>
+      <div class="cg-field">
+        <label>Max room cells</label>
+        <input
+          type="number"
+          min="1"
+          .value=${String(c.maxRoomCells ?? 6)}
+          @input=${(e: Event) => set({ maxRoomCells: num(e) || 1 })}
+        />
+      </div>
+      <p class="cg-modal-hint">Shrinking the grid drops any cells outside the new bounds.</p>
+      <div class="cg-modal-actions">
+        <button class="cg-btn cg-btn-primary" @click=${closeOverlay}>Done</button>
+      </div>
+    `
+  }
+
+  function cellEditor(cell: Cell) {
+    const val = (e: Event) => (e.target as HTMLInputElement).value
+    const role = cellRole(cell)
+    const glyph = cellGlyph(cell)
+    return html`
         <h3 class="cg-modal-title">Cell ${cell.coord.col}, ${cell.coord.row}</h3>
+        <div class="cg-field cg-field-col">
+          <label>This tile is…</label>
+          <div class="cg-seg" role="radiogroup" aria-label="Tile type">
+            ${(['floor', 'wall', 'audio', 'link'] as const).map(
+              (r) => html`<label class="cg-seg-opt ${role === r ? 'cg-seg-on' : ''}">
+                <input type="radio" name="cg-role" .checked=${role === r} @change=${() => setRole(r)} />
+                <span>${ROLE_LABELS[r]}</span>
+              </label>`,
+            )}
+          </div>
+          ${role === 'link'
+            ? html`<div class="cg-subfields">
+                <input
+                  type="url"
+                  placeholder="https://… (link URL)"
+                  .value=${cell.link?.url ?? ''}
+                  @input=${(e: Event) => editLink('url', val(e))}
+                />
+                <input
+                  placeholder="label / icon (e.g. 📹)"
+                  .value=${cell.link?.label ?? ''}
+                  @input=${(e: Event) => editLink('label', val(e))}
+                />
+              </div>`
+            : ''}
+        </div>
         <div class="cg-field">
           <label>Color</label>
           <input
@@ -747,14 +897,6 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
             : ''}
         </div>
         <div class="cg-field">
-          <label>Character</label>
-          <input
-            maxlength="2"
-            .value=${cell.char ?? ''}
-            @input=${(e: Event) => editPatch({ char: val(e) || undefined })}
-          />
-        </div>
-        <div class="cg-field">
           <label>Image URL</label>
           <input
             type="url"
@@ -762,40 +904,35 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
             @input=${(e: Event) => editPatch({ image: val(e) || undefined })}
           />
         </div>
-        <label class="cg-check">
-          <input
-            type="checkbox"
-            ?disabled=${!!cell.link}
-            .checked=${cell.audio ?? false}
-            @change=${(e: Event) => editPatch({ audio: checked(e) || undefined })}
-          />
-          Audio zone
-        </label>
-        <label class="cg-check">
-          <input
-            type="checkbox"
-            ?disabled=${!!cell.link}
-            .checked=${!cell.link && cell.walkable !== false}
-            @change=${(e: Event) => editPatch({ walkable: checked(e) ? undefined : false })}
-          />
-          Walkable
-        </label>
-        <fieldset class="cg-fieldset">
-          <legend>Link — a non-walkable kiosk (mutually exclusive with audio)</legend>
-          <input
-            type="url"
-            placeholder="https://…"
-            ?disabled=${!!cell.audio}
-            .value=${cell.link?.url ?? ''}
-            @input=${(e: Event) => editLink('url', val(e))}
-          />
-          <input
-            placeholder="label / icon (e.g. 📹)"
-            ?disabled=${!!cell.audio}
-            .value=${cell.link?.label ?? ''}
-            @input=${(e: Event) => editLink('label', val(e))}
-          />
-        </fieldset>
+        <div class="cg-field cg-field-col">
+          <label>Glyph</label>
+          <div class="cg-seg" role="radiogroup" aria-label="Glyph">
+            ${(['none', 'char', 'svg'] as const).map(
+              (g) => html`<label class="cg-seg-opt ${glyph === g ? 'cg-seg-on' : ''}">
+                <input type="radio" name="cg-glyph" .checked=${glyph === g} @change=${() => setGlyph(g)} />
+                <span>${GLYPH_LABELS[g]}</span>
+              </label>`,
+            )}
+          </div>
+          ${glyph === 'char'
+            ? html`<input
+                class="cg-subfields"
+                maxlength="2"
+                placeholder="a character (e.g. ★)"
+                .value=${cell.char ?? ''}
+                @input=${(e: Event) => editPatch({ char: val(e) })}
+              />`
+            : ''}
+          ${glyph === 'svg'
+            ? html`<textarea
+                class="cg-subfields"
+                rows="3"
+                placeholder="<svg …>…</svg>"
+                .value=${cell.svg ?? ''}
+                @input=${(e: Event) => editPatch({ svg: val(e) })}
+              ></textarea>`
+            : ''}
+        </div>
         <fieldset class="cg-fieldset">
           <legend>Description — hover preview & side panel when standing</legend>
           <input
@@ -826,8 +963,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
           <button class="cg-btn" @click=${clearEditedCell}>Clear cell</button>
           <button class="cg-btn cg-btn-primary" @click=${applyEdit}>Apply</button>
         </div>
-      </div>
-    </div>`
+    `
   }
 }
 
@@ -1188,11 +1324,67 @@ const STYLE = html`
       flex: 1 1 auto;
       min-width: 0;
     }
-    .cg-check {
+    /* stacked field: label on its own line above a full-width control or picker */
+    .cg-field-col {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+    }
+    .cg-field-col > label {
+      flex: none;
+    }
+    /* segmented radio group for mutually-exclusive choices (tile type, glyph) */
+    .cg-seg {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .cg-seg-opt {
+      flex: 1 1 0;
+      min-width: 64px;
+    }
+    .cg-seg-opt input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .cg-seg-opt span {
+      display: block;
+      text-align: center;
+      font-size: 13px;
+      padding: 7px 8px;
+      border: 1px solid var(--cg-border);
+      border-radius: 6px;
+      background: var(--cg-cell);
+      color: var(--cg-text);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .cg-seg-opt.cg-seg-on span {
+      background: var(--cg-accent);
+      color: var(--accent-ink, #fff);
+      border-color: var(--cg-accent);
+    }
+    .cg-seg-opt input:focus-visible + span {
+      outline: 2px solid var(--cg-accent);
+      outline-offset: 2px;
+    }
+    /* the inputs a picker reveals (link url/label, char, svg) sit indented below it */
+    .cg-subfields {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .cg-cell-svg {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 13px;
+      justify-content: center;
+      width: 80%;
+      height: 80%;
+    }
+    .cg-cell-svg svg {
+      width: 100%;
+      height: 100%;
     }
     .cg-fieldset {
       display: flex;

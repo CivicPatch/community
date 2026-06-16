@@ -17,6 +17,8 @@ export interface Cell {
   color?: string
   /** background image / sprite url */
   image?: string
+  /** inline SVG markup (sanitized at render time) */
+  svg?: string
   /** a single character drawn on the tile (signs, art) */
   char?: string
 

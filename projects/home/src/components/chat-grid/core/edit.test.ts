@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { GridConfig } from './types'
-import { clearCell, isMeaningfulCell, serializeConfig, setCell } from './edit'
+import { clearCell, isMeaningfulCell, serializeConfig, setCell, setGridMeta } from './edit'
 
 const base: GridConfig = { columns: 3, rows: 3, cells: [] }
 
@@ -38,6 +38,26 @@ describe('clearCell', () => {
   it('removes the cell at a coord', () => {
     const a = setCell(base, { coord: { col: 2, row: 2 }, char: 'X' })
     expect(clearCell(a, { col: 2, row: 2 }).cells).toHaveLength(0)
+  })
+})
+
+describe('setGridMeta', () => {
+  const seeded: GridConfig = {
+    columns: 5,
+    rows: 5,
+    spawn: { col: 4, row: 4 },
+    cells: [{ coord: { col: 4, row: 4 }, char: 'X' }],
+  }
+  it('updates dimensions', () => {
+    expect(setGridMeta(seeded, { columns: 8 }).columns).toBe(8)
+  })
+  it('prunes cells outside new bounds and clamps spawn when shrinking', () => {
+    const r = setGridMeta(seeded, { columns: 3, rows: 3 })
+    expect(r.cells).toHaveLength(0) // (4,4) is now out of bounds
+    expect(r.spawn).toEqual({ col: 2, row: 2 }) // clamped
+  })
+  it('floors and clamps dimensions to >= 1', () => {
+    expect(setGridMeta(seeded, { columns: 0 }).columns).toBe(1)
   })
 })
 
