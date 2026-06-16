@@ -25,6 +25,9 @@
   type: project
   display_name: CivicMirror
   url: https://civicmirror.welshrd.com
+  meta:
+    - label: Make blog post (admin only)
+      content: "<a href='https://github.com/CivicPatch/community/discussions/new?category=civicmirror' target='blank'>New Discussion</a>"
   description: A mock voting platform that anyone can vote on real elections and compare the two separate votes 
   feeds:
     - type: "discussion_event"
