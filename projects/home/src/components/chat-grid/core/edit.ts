@@ -8,11 +8,35 @@ import { coordsEqual } from './grid'
 export const isMeaningfulCell = (cell: Cell): boolean =>
   cell.color !== undefined ||
   cell.image !== undefined ||
+  cell.svg !== undefined ||
   cell.char !== undefined ||
   cell.audio === true ||
   cell.link !== undefined ||
   cell.description !== undefined ||
   cell.walkable === false
+
+/** Update grid dimensions/spawn/cap, pruning cells that fall out of the new bounds. */
+export const setGridMeta = (
+  config: GridConfig,
+  patch: Partial<Pick<GridConfig, 'columns' | 'rows' | 'spawn' | 'maxRoomCells'>>,
+): GridConfig => {
+  const next: GridConfig = { ...config, ...patch }
+  next.columns = Math.max(1, Math.floor(next.columns))
+  next.rows = Math.max(1, Math.floor(next.rows))
+  next.cells = next.cells.filter(
+    (c) =>
+      c.coord.col >= 0 &&
+      c.coord.row >= 0 &&
+      c.coord.col < next.columns &&
+      c.coord.row < next.rows,
+  )
+  if (next.spawn)
+    next.spawn = {
+      col: Math.max(0, Math.min(next.spawn.col, next.columns - 1)),
+      row: Math.max(0, Math.min(next.spawn.row, next.rows - 1)),
+    }
+  return next
+}
 
 /** Upsert a cell (matched by coord). An empty cell is removed entirely. Pure. */
 export const setCell = (config: GridConfig, cell: Cell): GridConfig => {
