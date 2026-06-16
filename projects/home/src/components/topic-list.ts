@@ -40,15 +40,31 @@ const TopicList = (
     { 'feed-url': feedUrl = 'feeds.json' }) => {
     const [topics, setTopics] = useState<Record<string, Topic>>({})
     const [topicGroups, setTopicGroups] = useState<TopicGroup[]>([])
+    const [generatedTimestamp, setGeneratedTimestamp] = useState(null)
 
     useEffect(() => {
         const load = async () => {
-            const [topicsData, topicGroupsData] = await fetchFeeds()
+            const [topicsData, topicGroupsData, generatedTimestampData] = await fetchFeeds()
             setTopics(topicsData);
             setTopicGroups(topicGroupsData)
+            setGeneratedTimestamp(generatedTimestampData)
         }
         load();
     }, [])
+
+    const friendlyTime = (timestamp: string) => {
+        const diffMs = new Date(timestamp).getTime() - Date.now()
+        const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+        const units: [Intl.RelativeTimeFormatUnit, number][] = [
+            ['day', 86_400_000], ['hour', 3_600_000],
+            ['minute', 60_000], ['second', 1000],
+        ]
+        for (const [unit, ms] of units) {
+            if (Math.abs(diffMs) >= ms || unit === 'second')
+                return rtf.format(Math.round(diffMs / ms), unit)
+        }
+        return ''
+    }
 
     const entriesByTopic = (entries: any[]) => {
         return entries.reduce((topics, currentEntry) => {
@@ -73,7 +89,7 @@ const TopicList = (
         const data = await response.json()
         console.log(data)
 
-        return [data.topics, entriesByTopic(data.entries)];
+        return [data.topics, entriesByTopic(data.entries), data.generated];
     }
 
     return html`
@@ -91,7 +107,7 @@ const TopicList = (
                                 <span class="marker" aria-hidden="true"></span>
                                 <h2><span class="topic-type-${topic.type}">${topic.type}</span> ${topic.display_name ?? topic.name}</h2>
                                 <time class="timestamp" datetime=${topicGroup.entries[0].updated}>
-                                    ${topicGroup.entries[0].updated.slice(0, 10)}
+                                    ${friendlyTime(topicGroup.entries[0].updated)}
                                 </time>
                             </section>
                             <section>
@@ -150,6 +166,11 @@ const TopicList = (
                 </li>`
             })}
         </ul>
+        ${generatedTimestamp &&
+            html` <div class="ledger-foot">
+            Last generated: ${friendlyTime(generatedTimestamp)}
+            </div>`
+        }
     `
 }
 
