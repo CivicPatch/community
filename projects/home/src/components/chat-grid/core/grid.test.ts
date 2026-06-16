@@ -10,6 +10,7 @@ import {
   isWalkable,
   nearestFreeCell,
   neighbors,
+  radioAt,
 } from './grid'
 
 const config: GridConfig = {
@@ -19,9 +20,21 @@ const config: GridConfig = {
     { coord: { col: 1, row: 1 }, audio: true },
     { coord: { col: 2, row: 2 }, walkable: false },
     { coord: { col: 0, row: 0 }, color: '#f00' },
+    { coord: { col: 3, row: 0 }, radio: { url: 'http://stream', label: 'Test FM' } },
   ],
 }
 const grid = buildGrid(config)
+
+describe('radioAt', () => {
+  it('returns the station at a radio tile, null elsewhere', () => {
+    expect(radioAt(grid, { col: 3, row: 0 })).toEqual({ url: 'http://stream', label: 'Test FM' })
+    expect(radioAt(grid, { col: 0, row: 0 })).toBeNull()
+    expect(radioAt(grid, { col: 4, row: 3 })).toBeNull()
+  })
+  it('keeps radio tiles walkable (you stand on them, unlike link kiosks)', () => {
+    expect(isWalkable(grid, { col: 3, row: 0 })).toBe(true)
+  })
+})
 
 describe('coord helpers', () => {
   it('keys and compares coords', () => {
@@ -34,7 +47,7 @@ describe('coord helpers', () => {
 describe('buildGrid / cellAt', () => {
   it('indexes only the special cells', () => {
     expect(grid.columns).toBe(5)
-    expect(grid.cells.size).toBe(3)
+    expect(grid.cells.size).toBe(4)
     expect(cellAt(grid, { col: 1, row: 1 })?.audio).toBe(true)
     expect(cellAt(grid, { col: 4, row: 3 })).toBeUndefined()
   })

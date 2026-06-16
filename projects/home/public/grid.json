@@ -6,41 +6,107 @@
   "cells": [
     { "coord": { "col": 0, "row": 0 }, "char": "🚪", "description": { "title": "Welcome", "body": "The front door. WASD to move around, click a tile to walk there." } },
 
+    { "coord": { "col": 3, "row": 0 }, "walkable": false, "color": "#2a3a44", "char": "🪟" },
+    { "coord": { "col": 4, "row": 0 }, "walkable": false, "color": "#2a3a44" },
+
+    { "coord": { "col": 8, "row": 0 }, "color": "#2a241e", "char": "C" },
+    { "coord": { "col": 9, "row": 0 }, "color": "#2a241e", "char": "A" },
+    { "coord": { "col": 10, "row": 0 }, "color": "#2a241e", "char": "F" },
+    { "coord": { "col": 11, "row": 0 }, "color": "#2a241e", "char": "E" },
+
+    { "coord": { "col": 23, "row": 0 }, "char": "🪴" },
+
+    { "coord": { "col": 12, "row": 1 }, "walkable": false, "color": "#5a4632", "char": "🥐" },
+    { "coord": { "col": 13, "row": 1 }, "walkable": false, "color": "#5a4632" },
+    { "coord": { "col": 14, "row": 1 }, "walkable": false, "color": "#5a4632", "char": "☕" },
+    { "coord": { "col": 15, "row": 1 }, "walkable": false, "color": "#5a4632" },
+    { "coord": { "col": 16, "row": 1 }, "walkable": false, "color": "#5a4632", "char": "🧁" },
+    { "coord": { "col": 17, "row": 1 }, "walkable": false, "color": "#5a4632" },
+    { "coord": { "col": 18, "row": 1 }, "walkable": false, "color": "#5a4632" },
+
+    { "coord": { "col": 1, "row": 3 }, "char": "🪔" },
+    { "coord": { "col": 8, "row": 3 }, "char": "🪴" },
+    { "coord": { "col": 15, "row": 3 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 16, "row": 3 }, "audio": true, "color": "#4a3e30" },
+
     { "coord": { "col": 0, "row": 4 }, "color": "#2a241e", "char": "M" },
     { "coord": { "col": 1, "row": 4 }, "color": "#2a241e", "char": "I" },
     { "coord": { "col": 2, "row": 4 }, "color": "#2a241e", "char": "S" },
     { "coord": { "col": 3, "row": 4 }, "color": "#2a241e", "char": "C" },
 
+    { "coord": { "col": 10, "row": 4 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 11, "row": 4 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 12, "row": 4 }, "audio": true, "color": "#4a3e30" },
+
+    { "coord": { "col": 19, "row": 4 }, "walkable": false, "color": "#4a2f22", "char": "🔥" },
+    { "coord": { "col": 20, "row": 4 }, "walkable": false, "color": "#4a2f22" },
+
     { "coord": { "col": 0, "row": 5 }, "link": { "url": "https://civicdata.tech", "label": "📊" }, "description": { "title": "Civic Data", "body": "Civic datasets & tools.", "links": [{ "url": "https://civicdata.tech", "label": "Open civicdata.tech" }] } },
     { "coord": { "col": 2, "row": 5 }, "link": { "url": "https://civictech.guide", "label": "📖" }, "description": { "title": "Civic Tech Field Guide", "body": "A directory of civic tech projects.", "links": [{ "url": "https://civictech.guide", "label": "Open the guide" }] } },
 
-    { "coord": { "col": 13, "row": 1 }, "walkable": false, "color": "#5a4632" },
-    { "coord": { "col": 14, "row": 1 }, "walkable": false, "color": "#5a4632" },
-    { "coord": { "col": 15, "row": 1 }, "walkable": false, "color": "#5a4632", "char": "☕" },
-    { "coord": { "col": 16, "row": 1 }, "walkable": false, "color": "#5a4632" },
-    { "coord": { "col": 17, "row": 1 }, "walkable": false, "color": "#5a4632" },
+    { "coord": { "col": 10, "row": 5 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 11, "row": 5 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 12, "row": 5 }, "audio": true, "color": "#4a3e30" },
 
-    { "coord": { "col": 15, "row": 2 }, "audio": true, "color": "#4a3e30" },
-    { "coord": { "col": 16, "row": 2 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 9, "row": 3 }, "color": "#5a3d3a" },
+    { "coord": { "col": 10, "row": 3 }, "color": "#5a3d3a" },
+    { "coord": { "col": 11, "row": 3 }, "color": "#5a3d3a" },
+    { "coord": { "col": 12, "row": 3 }, "color": "#5a3d3a" },
+    { "coord": { "col": 13, "row": 3 }, "color": "#5a3d3a" },
+    { "coord": { "col": 9, "row": 4 }, "color": "#5a3d3a" },
+    { "coord": { "col": 13, "row": 4 }, "color": "#5a3d3a" },
+    { "coord": { "col": 9, "row": 5 }, "color": "#5a3d3a" },
+    { "coord": { "col": 13, "row": 5 }, "color": "#5a3d3a" },
+    { "coord": { "col": 9, "row": 6 }, "color": "#5a3d3a" },
+    { "coord": { "col": 10, "row": 6 }, "color": "#5a3d3a" },
+    { "coord": { "col": 11, "row": 6 }, "color": "#5a3d3a" },
+    { "coord": { "col": 12, "row": 6 }, "color": "#5a3d3a" },
+    { "coord": { "col": 13, "row": 6 }, "color": "#5a3d3a" },
 
-    { "coord": { "col": 9, "row": 3 }, "audio": true, "color": "#4a3e30" },
-    { "coord": { "col": 10, "row": 3 }, "audio": true, "color": "#4a3e30" },
-    { "coord": { "col": 9, "row": 4 }, "audio": true, "color": "#4a3e30" },
-    { "coord": { "col": 10, "row": 4 }, "audio": true, "color": "#4a3e30" },
-
-    { "coord": { "col": 19, "row": 3 }, "audio": true, "color": "#4a3e30" },
-    { "coord": { "col": 20, "row": 3 }, "audio": true, "color": "#4a3e30" },
-    { "coord": { "col": 19, "row": 4 }, "audio": true, "color": "#4a3e30" },
-    { "coord": { "col": 20, "row": 4 }, "audio": true, "color": "#4a3e30" },
-
-    { "coord": { "col": 12, "row": 6 }, "audio": true, "color": "#4a3e30" },
-    { "coord": { "col": 13, "row": 6 }, "audio": true, "color": "#4a3e30" },
-    { "coord": { "col": 12, "row": 7 }, "audio": true, "color": "#4a3e30" },
-    { "coord": { "col": 13, "row": 7 }, "audio": true, "color": "#4a3e30" },
-
-    { "coord": { "col": 23, "row": 0 }, "char": "🪴" },
     { "coord": { "col": 16, "row": 5 }, "char": "🪴" },
+
+    { "coord": { "col": 19, "row": 5 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 20, "row": 5 }, "audio": true, "color": "#4a3e30" },
+
+    { "coord": { "col": 0, "row": 6 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+
+    { "coord": { "col": 19, "row": 6 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 20, "row": 6 }, "audio": true, "color": "#4a3e30" },
+
+    { "coord": { "col": 0, "row": 7 }, "walkable": false, "color": "#3a2f25" },
+    { "coord": { "col": 2, "row": 7 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 3, "row": 7 }, "audio": true, "color": "#4a3e30" },
+
+    { "coord": { "col": 0, "row": 8 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+    { "coord": { "col": 5, "row": 8 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 6, "row": 8 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 7, "row": 8 }, "char": "🪴" },
+
+    { "coord": { "col": 18, "row": 8 }, "walkable": false, "color": "#3a2a3a", "char": "💿" },
+    { "coord": { "col": 19, "row": 8 }, "walkable": false, "color": "#3a2a3a" },
+    { "coord": { "col": 20, "row": 8 }, "walkable": false, "color": "#3a2a3a", "char": "🎵" },
+    { "coord": { "col": 21, "row": 8 }, "walkable": false, "color": "#3a2a3a" },
+    { "coord": { "col": 22, "row": 8 }, "walkable": false, "color": "#3a2a3a", "char": "💿" },
+    { "coord": { "col": 23, "row": 8 }, "char": "🪴" },
+
     { "coord": { "col": 0, "row": 9 }, "char": "🪴" },
+    { "coord": { "col": 5, "row": 9 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 6, "row": 9 }, "audio": true, "color": "#4a3e30" },
+
+    { "coord": { "col": 18, "row": 9 }, "color": "#2a241e", "char": "R" },
+    { "coord": { "col": 19, "row": 9 }, "color": "#2a241e", "char": "A" },
+    { "coord": { "col": 20, "row": 9 }, "color": "#2a241e", "char": "D" },
+    { "coord": { "col": 21, "row": 9 }, "color": "#2a241e", "char": "I" },
+    { "coord": { "col": 22, "row": 9 }, "color": "#2a241e", "char": "O" },
+
+    { "coord": { "col": 18, "row": 10 }, "char": "🌴", "color": "#9b5ec2", "radio": { "url": "https://ice1.somafm.com/vaporwaves-128-mp3", "label": "Vaporwaves" }, "description": { "title": "🌴 Vaporwaves", "body": "All vaporwave, all the time. From SomaFM — step off the pad to stop.", "links": [{ "url": "https://somafm.com/player24/station/vaporwaves", "label": "Listen on SomaFM ↗" }] } },
+    { "coord": { "col": 18, "row": 11 }, "char": "🌴", "color": "#9b5ec2", "radio": { "url": "https://ice1.somafm.com/vaporwaves-128-mp3", "label": "Vaporwaves" }, "description": { "title": "🌴 Vaporwaves", "body": "All vaporwave, all the time. From SomaFM — step off the pad to stop.", "links": [{ "url": "https://somafm.com/player24/station/vaporwaves", "label": "Listen on SomaFM ↗" }] } },
+    { "coord": { "col": 20, "row": 10 }, "char": "🍸", "color": "#b5793a", "radio": { "url": "https://ice1.somafm.com/illstreet-128-mp3", "label": "Illinois St. Lounge" }, "description": { "title": "🍸 Illinois St. Lounge", "body": "Classic bachelor pad, playful exotica and vintage music of tomorrow. From SomaFM — step off the pad to stop.", "links": [{ "url": "https://somafm.com/player24/station/illstreet", "label": "Listen on SomaFM ↗" }] } },
+    { "coord": { "col": 20, "row": 11 }, "char": "🍸", "color": "#b5793a", "radio": { "url": "https://ice1.somafm.com/illstreet-128-mp3", "label": "Illinois St. Lounge" }, "description": { "title": "🍸 Illinois St. Lounge", "body": "Classic bachelor pad, playful exotica and vintage music of tomorrow. From SomaFM — step off the pad to stop.", "links": [{ "url": "https://somafm.com/player24/station/illstreet", "label": "Listen on SomaFM ↗" }] } },
+    { "coord": { "col": 22, "row": 10 }, "char": "🌸", "color": "#3f7fb0", "radio": { "url": "https://ice1.somafm.com/lush-128-mp3", "label": "Lush" }, "description": { "title": "🌸 Lush", "body": "Sensuous and mellow female vocals, many with an electronic influence. From SomaFM — step off the pad to stop.", "links": [{ "url": "https://somafm.com/player24/station/lush", "label": "Listen on SomaFM ↗" }] } },
+    { "coord": { "col": 22, "row": 11 }, "char": "🌸", "color": "#3f7fb0", "radio": { "url": "https://ice1.somafm.com/lush-128-mp3", "label": "Lush" }, "description": { "title": "🌸 Lush", "body": "Sensuous and mellow female vocals, many with an electronic influence. From SomaFM — step off the pad to stop.", "links": [{ "url": "https://somafm.com/player24/station/lush", "label": "Listen on SomaFM ↗" }] } },
+
+    { "coord": { "col": 12, "row": 12 }, "char": "🪴" },
 
     { "coord": { "col": 0, "row": 13 }, "color": "#2a241e", "char": "M" },
     { "coord": { "col": 1, "row": 13 }, "color": "#2a241e", "char": "E" },

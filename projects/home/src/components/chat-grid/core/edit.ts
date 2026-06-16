@@ -12,6 +12,7 @@ export const isMeaningfulCell = (cell: Cell): boolean =>
   cell.char !== undefined ||
   cell.audio === true ||
   cell.link !== undefined ||
+  cell.radio !== undefined ||
   cell.description !== undefined ||
   cell.walkable === false
 

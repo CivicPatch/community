@@ -28,6 +28,12 @@ export interface Cell {
   /** clickable kiosk — rendered as a real <a>, opens in a new tab */
   link?: { url: string; label?: string }
   /**
+   * Music tile — WALKABLE (unlike a link kiosk). Standing on it streams `url`
+   * (e.g. a SomaFM station) for that player only; stepping off stops it. `label`
+   * is the station name (aria / "now playing").
+   */
+  radio?: { url: string; label?: string }
+  /**
    * Shown in the side panel when you STAND on this cell. Composable on any cell.
    * A "Google Meet tile" is just an icon + a description whose links include a
    * "Join" url — no special meet behavior needed.

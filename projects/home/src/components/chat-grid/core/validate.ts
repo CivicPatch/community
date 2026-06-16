@@ -24,6 +24,7 @@ export const validateGrid = (config: GridConfig): string[] => {
     if (cell.char !== undefined && [...cell.char].length !== 1)
       errors.push(`cell ${key}: char must be exactly one character`)
     if (cell.link && !cell.link.url) errors.push(`cell ${key}: link is missing a url`)
+    if (cell.radio && !cell.radio.url) errors.push(`cell ${key}: radio is missing a url`)
   }
 
   if (config.spawn && !inBounds(grid, config.spawn))
