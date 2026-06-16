@@ -32,6 +32,7 @@ run = """
 dir = "{{ config_root }}/projects/home"
 env = { FEED_OUTPUT_FOLDER = "{{ config_root }}/projects/home/public" }
 run = """
+    npm ci &&
     mise feeds &&
     npm run build
 """

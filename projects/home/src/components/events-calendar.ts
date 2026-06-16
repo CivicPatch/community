@@ -1,5 +1,5 @@
 import { html } from 'lit';
-import { component, useEffect, useState } from 'haunted';
+import { component } from 'haunted';
 
 const EventsCalendar = () => {
     return html`hello-wold`
