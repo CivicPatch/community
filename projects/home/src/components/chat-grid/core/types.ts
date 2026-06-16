@@ -65,6 +65,12 @@ export interface Player {
   coord: Coord
   /** has this player turned on their mic? (presence-synced, so everyone sees it) */
   audioEnabled?: boolean
+  /** chosen avatar — an emoji or single char (presence-synced). Never an image URL. */
+  avatar?: string
+  /** free-text status; doubles as lightweight chat. Empty/absent = no status. */
+  status?: string
+  /** sender Date.now() when `status` was last set; drives the status-bubble fade. */
+  statusAt?: number
 }
 
 /** Connected-component index from the flood fill. Coords with no audio room are absent. */
