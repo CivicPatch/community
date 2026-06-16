@@ -1,2 +1,10 @@
 .venv
 dist
+.env
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log

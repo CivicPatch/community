@@ -22,6 +22,7 @@ interface Topic {
   description?: string | null
   name: string
   feeds: { type: FeedType; url: string }[]
+  meta?: { label: string; content: string }[]
 }
 
 interface TopicGroup {
@@ -75,7 +76,7 @@ const TopicList = (
         </header>
         <ul class="topics">
             ${topicGroups.map((topicGroup: any) => { 
-                const topic: any = topics[topicGroup["name"]];
+                const topic = topics[topicGroup["name"]];
                 return html`
                 <li class="topic">
                     <details name="topics">
@@ -101,6 +102,15 @@ const TopicList = (
                                         ${topic.url}
                                     </a>
                                 </dd>
+                                ${
+                                    topic.meta &&
+                                    topic.meta.map((metaItem) => {
+                                        return html`
+                                        <dt>${metaItem.label}</dd>
+                                        <dd>${unsafeHTML(DOMPurify.sanitize(metaItem.content))}</dd>
+                                        `
+                                    })
+                                }
                             ` : ''}
                         </dl>
                         <ol class="entries">
