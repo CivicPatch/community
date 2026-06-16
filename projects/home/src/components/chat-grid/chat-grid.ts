@@ -136,8 +136,10 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
       moveTo(step)
       i++
     }
-    tick() // first step immediately, then on an interval
+    // establish the interval BEFORE the first step, so a throw in step 0 can't
+    // prevent the rest of the path from running
     travelRef.current.timer = window.setInterval(tick, STEP_MS)
+    tick()
   }
 
   const onCellClick = (target: Coord) => {
