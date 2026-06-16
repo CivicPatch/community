@@ -40,3 +40,24 @@ export const neighbors = (grid: Grid, c: Coord): Coord[] => {
     .map((d) => ({ col: c.col + d.col, row: c.row + d.row }))
     .filter((n) => inBounds(grid, n))
 }
+
+/**
+ * Nearest walkable, unoccupied cell to `from` (BFS outward). Returns `from`
+ * itself if it's already free, or falls back to `from` if the grid is full.
+ */
+export const nearestFreeCell = (grid: Grid, from: Coord, occupied: Set<string>): Coord => {
+  const seen = new Set<string>([coordKey(from)])
+  const queue: Coord[] = [from]
+  while (queue.length) {
+    const cur = queue.shift() as Coord
+    if (isWalkable(grid, cur) && !occupied.has(coordKey(cur))) return cur
+    for (const n of neighbors(grid, cur)) {
+      const k = coordKey(n)
+      if (!seen.has(k)) {
+        seen.add(k)
+        queue.push(n)
+      }
+    }
+  }
+  return from
+}
