@@ -4,7 +4,7 @@
 // RealtimeBackend interface.
 
 import type { Coord, Player, PlayerId } from '../core/types'
-import type { RealtimeBackend, Signal } from './realtime'
+import type { RealtimeBackend, Signal, VoiceState } from './realtime'
 import { createEmitter } from './emitter'
 
 type Msg =
@@ -13,6 +13,7 @@ type Msg =
   | { kind: 'move'; id: PlayerId; coord: Coord }
   | { kind: 'leave'; id: PlayerId }
   | { kind: 'signal'; to: PlayerId; from: PlayerId; signal: Signal }
+  | { kind: 'voice'; from: PlayerId; state: VoiceState }
 
 export const createFakeBackend = (channelName = 'chat-grid'): RealtimeBackend => {
   const channel = new BroadcastChannel(channelName)
@@ -20,6 +21,7 @@ export const createFakeBackend = (channelName = 'chat-grid'): RealtimeBackend =>
   let me: Player | null = null
   const players = createEmitter<Player[]>()
   const signals = createEmitter<{ from: PlayerId; signal: Signal }>()
+  const voices = createEmitter<{ from: PlayerId; state: VoiceState }>()
 
   const emit = () => players.emit([...others.values()])
 
@@ -51,6 +53,9 @@ export const createFakeBackend = (channelName = 'chat-grid'): RealtimeBackend =>
       case 'signal':
         if (msg.to === me?.id) signals.emit({ from: msg.from, signal: msg.signal })
         break
+      case 'voice':
+        if (msg.from !== me?.id) voices.emit({ from: msg.from, state: msg.state })
+        break
     }
   }
 
@@ -78,6 +83,13 @@ export const createFakeBackend = (channelName = 'chat-grid'): RealtimeBackend =>
     },
     onSignal(cb) {
       return signals.on(({ from, signal }) => cb(from, signal))
+    },
+    sendVoice(state) {
+      if (!me) return
+      channel.postMessage({ kind: 'voice', from: me.id, state } satisfies Msg)
+    },
+    onVoice(cb) {
+      return voices.on(({ from, state }) => cb(from, state))
     },
     leave() {
       if (me) channel.postMessage({ kind: 'leave', id: me.id } satisfies Msg)

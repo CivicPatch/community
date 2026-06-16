@@ -13,6 +13,13 @@ export type Signal =
   | { kind: 'ice'; candidate: RTCIceCandidateInit }
   | { kind: 'bye' } // "I'm disconnecting" — lets the peer tear down immediately
 
+/** Speaking state, broadcast to EVERYONE so avatars react grid-wide, not just to
+ *  people you're connected to. */
+export interface VoiceState {
+  speaking: boolean
+  bucket: number
+}
+
 export interface RealtimeBackend {
   /** Announce self and begin syncing presence. */
   join(me: Player): void
@@ -26,6 +33,10 @@ export interface RealtimeBackend {
   sendSignal(to: PlayerId, signal: Signal): void
   /** Receive WebRTC signals addressed to me. Returns an unsubscribe fn. */
   onSignal(cb: (from: PlayerId, signal: Signal) => void): () => void
+  /** Broadcast my speaking state to everyone (for grid-wide avatar reactions). */
+  sendVoice(state: VoiceState): void
+  /** Receive others' speaking state. Returns an unsubscribe fn. */
+  onVoice(cb: (from: PlayerId, state: VoiceState) => void): () => void
   /** Clean disconnect. */
   leave(): void
 }

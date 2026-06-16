@@ -10,7 +10,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { Coord, Player, PlayerId } from '../core/types'
-import type { RealtimeBackend, Signal } from './realtime'
+import type { RealtimeBackend, Signal, VoiceState } from './realtime'
 import { initialStatus, nextStatus } from '../core/fsm/session'
 import type { ConnStatus, SessionEvent } from '../core/fsm/session'
 import { createEmitter } from './emitter'
@@ -21,6 +21,7 @@ const PRESENCE_GRACE_MS = 6000
 
 type MovePayload = { id: PlayerId; coord: Coord }
 type SignalPayload = { to: PlayerId; from: PlayerId; signal: Signal }
+type VoicePayload = { from: PlayerId; state: VoiceState }
 
 export const createSupabaseBackend = (
   url: string,
@@ -34,6 +35,7 @@ export const createSupabaseBackend = (
 
   const players = createEmitter<Player[]>()
   const signals = createEmitter<{ from: PlayerId; signal: Signal }>()
+  const voices = createEmitter<{ from: PlayerId; state: VoiceState }>()
   const statuses = createEmitter<ConnStatus>()
   const roster = createRoster({ graceMs: PRESENCE_GRACE_MS, onChange: players.emit })
 
@@ -57,7 +59,10 @@ export const createSupabaseBackend = (
 
   // fire-and-forget; positions/signals are idempotent or naturally re-sent, so a
   // transient send failure must never throw into the caller
-  const send = (event: 'move' | 'signal', payload: MovePayload | SignalPayload) => {
+  const send = (
+    event: 'move' | 'signal' | 'voice',
+    payload: MovePayload | SignalPayload | VoicePayload,
+  ) => {
     if (!channel) return
     try {
       Promise.resolve(channel.send({ type: 'broadcast', event, payload })).catch(() => {})
@@ -89,6 +94,10 @@ export const createSupabaseBackend = (
       .on('broadcast', { event: 'signal' }, ({ payload }) => {
         const { to, from, signal } = payload as SignalPayload
         if (to === me?.id) signals.emit({ from, signal })
+      })
+      .on('broadcast', { event: 'voice' }, ({ payload }) => {
+        const { from, state } = payload as VoicePayload
+        if (from !== me?.id) voices.emit({ from, state })
       })
       .subscribe((channelStatus) => {
         if (channelStatus === 'SUBSCRIBED') {
@@ -137,6 +146,13 @@ export const createSupabaseBackend = (
     },
     onSignal(cb) {
       return signals.on(({ from, signal }) => cb(from, signal))
+    },
+    sendVoice(state) {
+      if (!me) return
+      send('voice', { from: me.id, state })
+    },
+    onVoice(cb) {
+      return voices.on(({ from, state }) => cb(from, state))
     },
     leave() {
       leaving = true
