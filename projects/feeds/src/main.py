@@ -64,6 +64,7 @@ class FeedEntry(BaseModel):
     image: HttpUrl | None = None
 
 class Output(BaseModel):
+    generated: datetime 
     topics: dict[str, Topic]
     entries: list[FeedEntry]
 
@@ -131,7 +132,8 @@ def fetch_all_entries(topics: dict[str, Topic]):
 
 def save_feed_entries(topics: dict[str, Topic], entries: list[FeedEntry]):
     Path(FEED_OUTPUT_FOLDER).mkdir(parents=True, exist_ok=True)
-    feed_output = Output(topics=topics, entries=entries)
+    current_time = datetime.now(timezone.utc)
+    feed_output = Output(generated=current_time, topics=topics, entries=entries)
     output_filename = Path(FEED_OUTPUT_FOLDER) / "feeds.json"
     _ = output_filename.write_text(feed_output.model_dump_json(indent=2))
 

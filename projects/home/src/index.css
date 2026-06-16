@@ -364,3 +364,13 @@ span.topic-type-project {
   color: var(--color-2);
   background-color: color-mix(in srgb, var(--color-2) 14%, transparent);
 }
+
+/* footer stamp — when the feed was last rebuilt (bookend to .ledger-head) */
+.ledger-foot {
+  margin-top: 1.25rem;
+  padding-top: 0.7rem;
+  border-top: 2px solid var(--line);
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  text-align: right;
+}

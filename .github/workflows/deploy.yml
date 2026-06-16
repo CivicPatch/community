@@ -3,6 +3,10 @@ name: Deploy to Pages
 on:
   push:
     branches: [main]
+  # hourly at :39 (minutes past the hour), to refresh the feeds (fetched at build time)
+  schedule:
+    - cron: "39 * * * *"
+  workflow_dispatch:
 permissions:
   contents: read
   pages: write
