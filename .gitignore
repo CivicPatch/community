@@ -10,3 +10,5 @@ node_modules/
 *.tfstate.*
 *.tfvars
 crash.log
+
+projects/home/public/feeds.json
