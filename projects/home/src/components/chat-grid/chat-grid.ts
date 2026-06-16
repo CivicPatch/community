@@ -59,6 +59,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const [peerStates, setPeerStates] = useState<Record<string, PeerState>>({})
   const [streams, setStreams] = useState<Record<string, MediaStream | null>>({})
   const [mutedPeers, setMutedPeers] = useState<Set<string>>(new Set())
+  const [blockedPeers, setBlocked] = useState<Set<string>>(new Set())
 
   // Mutable mirrors for use inside timers / the mount effect (avoid stale closures).
   const meId = useRef<string>('')
@@ -149,9 +150,17 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   useEffect(() => {
     const mesh = meshRef.current
     if (!mesh) return
-    const wanted = gate === 'on' && myCoord ? peersInRoom(rooms, myCoord, others) : []
+    const wanted =
+      gate === 'on' && myCoord
+        ? peersInRoom(rooms, myCoord, others).filter((id) => !blockedPeers.has(id))
+        : []
     mesh.setWantedPeers(wanted)
-  }, [gate, myCoord, others, rooms])
+  }, [gate, myCoord, others, rooms, blockedPeers])
+
+  // Push blocks to the mesh so it severs and refuses those peers.
+  useEffect(() => {
+    meshRef.current?.setBlockedPeers([...blockedPeers])
+  }, [blockedPeers])
 
   // Mic transmits ONLY while standing in an audio room and not manually muted.
   // Toggling track.enabled stops/starts audio without releasing the device, so
@@ -239,6 +248,13 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     const next = new Set(mutedPeers)
     next.has(id) ? next.delete(id) : next.add(id)
     setMutedPeers(next)
+  }
+
+  // Block: sever and refuse a peer entirely (stronger than mute).
+  const toggleBlockPeer = (id: string) => {
+    const next = new Set(blockedPeers)
+    next.has(id) ? next.delete(id) : next.add(id)
+    setBlocked(next)
   }
 
   if (!grid) return html`${STYLE}<div class="cg-wrap">Loading grid…</div>`
@@ -333,18 +349,36 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
                   ${roomPeerPlayers.map((p) => {
                     const connected = peerStates[p.id] === 'connected'
                     const isMuted = mutedPeers.has(p.id)
-                    return html`<li class="cg-roster-item">
+                    const isBlocked = blockedPeers.has(p.id)
+                    return html`<li class="cg-roster-item ${isBlocked ? 'cg-blocked' : ''}">
                       <span class="cg-roster-status ${connected ? 'cg-on' : ''}" aria-hidden="true"></span>
                       <span class="cg-roster-name">${p.name}</span>
-                      <span class="cg-visually-hidden">${connected ? 'connected' : 'connecting'}</span>
-                      <button
-                        class="cg-btn cg-roster-btn"
-                        aria-pressed=${isMuted}
-                        aria-label=${`${isMuted ? 'Unmute' : 'Mute'} ${p.name}`}
-                        @click=${() => toggleMutePeer(p.id)}
-                      >
-                        ${isMuted ? '🔇 Muted' : '🔈 Mute'}
-                      </button>
+                      <span class="cg-visually-hidden">
+                        ${isBlocked ? 'blocked' : connected ? 'connected' : 'connecting'}
+                      </span>
+                      ${isBlocked
+                        ? html`<button
+                            class="cg-btn cg-roster-btn"
+                            aria-label=${`Unblock ${p.name}`}
+                            @click=${() => toggleBlockPeer(p.id)}
+                          >
+                            Unblock
+                          </button>`
+                        : html`<button
+                              class="cg-btn cg-roster-btn"
+                              aria-pressed=${isMuted}
+                              aria-label=${`${isMuted ? 'Unmute' : 'Mute'} ${p.name}`}
+                              @click=${() => toggleMutePeer(p.id)}
+                            >
+                              ${isMuted ? '🔇 Muted' : '🔈 Mute'}
+                            </button>
+                            <button
+                              class="cg-btn cg-roster-btn"
+                              aria-label=${`Block ${p.name}`}
+                              @click=${() => toggleBlockPeer(p.id)}
+                            >
+                              Block
+                            </button>`}
                     </li>`
                   })}
                 </ul>`}
@@ -564,8 +598,13 @@ const STYLE = html`
     .cg-roster-item {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 8px;
       min-height: 44px;
+    }
+    .cg-roster-item.cg-blocked .cg-roster-name {
+      color: #777;
+      text-decoration: line-through;
     }
     .cg-roster-status {
       flex: 0 0 auto;

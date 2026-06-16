@@ -9,6 +9,8 @@ import type { PeerEvent, PeerState } from '../core/fsm/peer'
 import type { PlayerId } from '../core/types'
 import type { RealtimeBackend, Signal } from './realtime'
 
+const UNWANT_DEBOUNCE_MS = 1000 // keep a peer briefly after leaving, to smooth churn
+
 interface PeerRec {
   state: PeerState
   pc: RTCPeerConnection | null
@@ -22,6 +24,8 @@ export interface MeshAudio {
   setMic(stream: MediaStream | null): void
   /** The set of peers we should be connected to (driven by the room diff). */
   setWantedPeers(ids: PlayerId[]): void
+  /** Peers to sever and refuse connections from (local block / moderation). */
+  setBlockedPeers(ids: PlayerId[]): void
   /** Remote stream arrived (or cleared, with null) for a peer. */
   onRemoteStream(cb: (peerId: PlayerId, stream: MediaStream | null) => void): () => void
   /** Per-peer connection states, for UI. */
@@ -32,6 +36,8 @@ export interface MeshAudio {
 
 export const createMeshAudio = (selfId: PlayerId, backend: RealtimeBackend): MeshAudio => {
   const peers = new Map<PlayerId, PeerRec>()
+  const pendingUnwant = new Map<PlayerId, ReturnType<typeof setTimeout>>()
+  let blocked = new Set<PlayerId>()
   let localStream: MediaStream | null = null
   let streamListeners: ((id: PlayerId, s: MediaStream | null) => void)[] = []
   let stateListeners: ((states: Record<PlayerId, PeerState>) => void)[] = []
@@ -54,6 +60,14 @@ export const createMeshAudio = (selfId: PlayerId, backend: RealtimeBackend): Mes
     return rec
   }
 
+  const cancelUnwant = (id: PlayerId) => {
+    const t = pendingUnwant.get(id)
+    if (t !== undefined) {
+      clearTimeout(t)
+      pendingUnwant.delete(id)
+    }
+  }
+
   const dispatch = (id: PlayerId, event: PeerEvent) => {
     const rec = recFor(id)
     const [next, effects] = peerTransition(rec.state, event)
@@ -62,7 +76,10 @@ export const createMeshAudio = (selfId: PlayerId, backend: RealtimeBackend): Mes
       if (eff === 'open') openPeer(id)
       else closePeer(id)
     }
-    if (next === 'idle') peers.delete(id) // fully done — forget it
+    if (next === 'idle') {
+      peers.delete(id) // fully done — forget it
+      cancelUnwant(id)
+    }
     emitStates()
   }
 
@@ -121,6 +138,10 @@ export const createMeshAudio = (selfId: PlayerId, backend: RealtimeBackend): Mes
   }
 
   const onSignal = async (from: PlayerId, signal: Signal) => {
+    if (blocked.has(from)) {
+      backend.sendSignal(from, { kind: 'bye' }) // refuse — we've blocked them
+      return
+    }
     if (signal.kind === 'bye') {
       dispatch(from, 'unwanted') // peer left — tear down our side now
       return
@@ -174,8 +195,26 @@ export const createMeshAudio = (selfId: PlayerId, backend: RealtimeBackend): Mes
     },
     setWantedPeers(ids) {
       const wanted = new Set(ids)
-      for (const id of wanted) dispatch(id, 'wanted')
-      for (const id of [...peers.keys()]) if (!wanted.has(id)) dispatch(id, 'unwanted')
+      for (const id of wanted) {
+        cancelUnwant(id) // back (or still here) — don't tear down
+        dispatch(id, 'wanted')
+      }
+      // debounce removals: a peer you briefly leave (walking along a room edge)
+      // lingers a moment, so fast movement doesn't thrash connect/disconnect
+      for (const id of [...peers.keys()]) {
+        if (wanted.has(id) || pendingUnwant.has(id)) continue
+        pendingUnwant.set(
+          id,
+          setTimeout(() => {
+            pendingUnwant.delete(id)
+            dispatch(id, 'unwanted')
+          }, UNWANT_DEBOUNCE_MS),
+        )
+      }
+    },
+    setBlockedPeers(ids) {
+      blocked = new Set(ids)
+      for (const id of blocked) if (peers.has(id)) dispatch(id, 'unwanted') // sever now
     },
     onRemoteStream(cb) {
       streamListeners.push(cb)
@@ -191,6 +230,8 @@ export const createMeshAudio = (selfId: PlayerId, backend: RealtimeBackend): Mes
     },
     close() {
       unsubSignal()
+      for (const t of pendingUnwant.values()) clearTimeout(t)
+      pendingUnwant.clear()
       peers.forEach((rec) => rec.pc?.close())
       peers.clear()
       localStream = null
