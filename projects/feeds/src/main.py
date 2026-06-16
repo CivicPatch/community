@@ -26,12 +26,17 @@ class TopicType(str, Enum):
     project = "project"
 
 class FeedType(str, Enum):
+    news_event = "news_event"
     discussion_event = "discussion_event"
     commit_event = "commit_event"
 
 class Feed(BaseModel):
     type: FeedType
     url: HttpUrl
+
+class MetaItem(BaseModel):
+    label: str
+    content: str
 
 class Topic(BaseModel):
     type: TopicType | None = None
@@ -40,6 +45,7 @@ class Topic(BaseModel):
     name: str
     display_name: str | None = None
     feeds: list[Feed]
+    meta: list[MetaItem] | None = None
 
 class RssEntry(BaseModel):
     id: str
@@ -55,7 +61,7 @@ class FeedEntry(BaseModel):
     title: str
     link: str
     updated: datetime
-    image: str | None = None
+    image: HttpUrl | None = None
 
 class Output(BaseModel):
     topics: dict[str, Topic]
@@ -72,21 +78,12 @@ def get_topics() -> dict[str, Topic]:
     }
     return topics_by_name
 
-def format_rss(entry: object):
-    rss_entry = RssEntry.model_validate(entry)
-
-    return {
-        "id": rss_entry.id,
-        "title": nh3.clean(rss_entry.summary),
-        "link": rss_entry.link,
-        "updated": parsedate_to_datetime(rss_entry.published)
-    }
-
 def to_entry(entry: dict[str, Any]):  # pyright: ignore[reportExplicitAny]
     when = entry.get("updated_parsed") or entry.get("published_parsed")   # struct_time
+    title = entry.get("title") or entry.get("summary") or "(untitled)"
     return {
         "id":    entry.get("id") or entry.get("link"),
-        "title": entry.get("title") or entry.get("summary") or "(untitled)",
+        "title": nh3.clean(title),
         "link":  entry.get("link"),
         "updated": datetime.fromtimestamp(timegm(when), tz=timezone.utc) if when else None
     }
@@ -94,10 +91,12 @@ def to_entry(entry: dict[str, Any]):  # pyright: ignore[reportExplicitAny]
 def fetch_feed_entries(name: str, feed_type: FeedType, url: str):
     response = httpx.get(url)
     parsed = feedparser.parse(response.content)  # pyright: ignore[reportUnknownMemberType]
-    feed = cast(dict[str, Any], parsed.feed)
+    #pprint(parsed)
+    feed = cast(dict[str, Any], parsed.feed)  # pyright: ignore[reportExplicitAny]
     entries = cast(list[dict[str, object]], parsed.entries)
 
     entries = [to_entry(entry) for entry in entries]
+
     feed_image = feed.get("image") or {}
     image: str | None = feed_image.get("href")
 

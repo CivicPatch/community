@@ -15,7 +15,8 @@
           "type": "commit_event",
           "url": "https://github.com/CivicPatch/open-data/commits.atom"
         }
-      ]
+      ],
+      "meta": null
     },
     "civicpatch-org": {
       "type": "project",
@@ -28,7 +29,8 @@
           "type": "commit_event",
           "url": "https://github.com/CivicPatch/open-data/commits.atom"
         }
-      ]
+      ],
+      "meta": null
     },
     "civicmirror": {
       "type": "project",
@@ -41,7 +43,8 @@
           "type": "discussion_event",
           "url": "https://github.com/CivicPatch/community/discussions/categories/civicmirror.atom"
         }
-      ]
+      ],
+      "meta": null
     },
     "feeds": {
       "type": "project",
@@ -54,7 +57,8 @@
           "type": "commit_event",
           "url": "https://github.com/CivicPatch/community/commits/main/projects/feeds.atom"
         }
-      ]
+      ],
+      "meta": null
     },
     "ideas": {
       "type": null,
@@ -66,6 +70,12 @@
         {
           "type": "discussion_event",
           "url": "https://github.com/CivicPatch/community/discussions/categories/ideas.atom"
+        }
+      ],
+      "meta": [
+        {
+          "label": "Add your idea",
+          "content": "<a href='https://github.com/CivicPatch/community/discussions/new?category=ideas' target='blank'>New Discussion</a>"
         }
       ]
     },
@@ -80,10 +90,29 @@
           "type": "discussion_event",
           "url": "https://mastodon.social/@pahlkadot.rss"
         }
-      ]
+      ],
+      "meta": null
     }
   },
   "entries": [
+    {
+      "name": "ideas",
+      "type": "discussion_event",
+      "id": "tag:github.com,2008:10264191",
+      "title": "community idea: Add side effects to the feeds project",
+      "link": "https://github.com/CivicPatch/community/discussions/4",
+      "updated": "2026-06-16T00:08:19Z",
+      "image": null
+    },
+    {
+      "name": "civicmirror",
+      "type": "discussion_event",
+      "id": "tag:github.com,2008:10264142",
+      "title": "Example blog post",
+      "link": "https://github.com/CivicPatch/community/discussions/3",
+      "updated": "2026-06-15T23:52:51Z",
+      "image": null
+    },
     {
       "name": "ideas",
       "type": "discussion_event",
@@ -268,7 +297,7 @@
       "name": "civicpatch-tools",
       "type": "commit_event",
       "id": "tag:github.com,2008:Grit::Commit/2466b6660e3f717fe0a88366490d312e41705d68",
-      "title": "Update geoids -> explicit quotes",
+      "title": "Update geoids -&gt; explicit quotes",
       "link": "https://github.com/CivicPatch/open-data/commit/2466b6660e3f717fe0a88366490d312e41705d68",
       "updated": "2026-06-06T00:00:00Z",
       "image": null
@@ -304,7 +333,7 @@
       "name": "civicpatch-org",
       "type": "commit_event",
       "id": "tag:github.com,2008:Grit::Commit/2466b6660e3f717fe0a88366490d312e41705d68",
-      "title": "Update geoids -> explicit quotes",
+      "title": "Update geoids -&gt; explicit quotes",
       "link": "https://github.com/CivicPatch/open-data/commit/2466b6660e3f717fe0a88366490d312e41705d68",
       "updated": "2026-06-06T00:00:00Z",
       "image": null
@@ -502,7 +531,7 @@
       "name": "civicpatch-tools",
       "type": "commit_event",
       "id": "tag:github.com,2008:Grit::Commit/97afcb67c334cc96227fe05e812ec815c489020e",
-      "title": "Raise merge issue if enqueue > 15 minutes",
+      "title": "Raise merge issue if enqueue &gt; 15 minutes",
       "link": "https://github.com/CivicPatch/civicpatch-tools/commit/97afcb67c334cc96227fe05e812ec815c489020e",
       "updated": "2026-06-04T22:45:01Z",
       "image": null
@@ -520,7 +549,7 @@
       "name": "civicpatch-tools",
       "type": "commit_event",
       "id": "tag:github.com,2008:Grit::Commit/6646d2954a2838c312c020897208424710fc38ae",
-      "title": "Validate phones & URLs on official input; keep reviewers in-session o…",
+      "title": "Validate phones &amp; URLs on official input; keep reviewers in-session o…",
       "link": "https://github.com/CivicPatch/civicpatch-tools/commit/6646d2954a2838c312c020897208424710fc38ae",
       "updated": "2026-06-04T22:45:01Z",
       "image": null
@@ -547,7 +576,7 @@
       "name": "civicpatch-tools",
       "type": "commit_event",
       "id": "tag:github.com,2008:Grit::Commit/2a4a90903ef3051e7af33f13239ce84a021b3d3f",
-      "title": "Increase auth session from 1 day -> 7 days; move nav css out",
+      "title": "Increase auth session from 1 day -&gt; 7 days; move nav css out",
       "link": "https://github.com/CivicPatch/civicpatch-tools/commit/2a4a90903ef3051e7af33f13239ce84a021b3d3f",
       "updated": "2026-06-03T02:24:19Z",
       "image": null
@@ -637,7 +666,7 @@
       "name": "people",
       "type": "discussion_event",
       "id": "https://mastodon.social/@pahlkadot/113821850550186697",
-      "title": "<p>As you know, fixing federal hiring has been at the top of my wishlist for a long time. I had the chance to talk about this on OddLots with the amazing Tracy Alloway and Joe Weisenthal, and it's out today. We cover some other stuff too. :) <br /><a href=\"https://bloom.bg/3Cfti9V\" rel=\"nofollow noopener\" target=\"_blank\"><span class=\"invisible\">https://</span><span class=\"\">bloom.bg/3Cfti9V</span><span class=\"invisible\"></span></a></p>",
+      "title": "<p>As you know, fixing federal hiring has been at the top of my wishlist for a long time. I had the chance to talk about this on OddLots with the amazing Tracy Alloway and Joe Weisenthal, and it's out today. We cover some other stuff too. :) <br><a href=\"https://bloom.bg/3Cfti9V\" rel=\"noopener noreferrer\"><span>https://</span><span>bloom.bg/3Cfti9V</span><span></span></a></p>",
       "link": "https://mastodon.social/@pahlkadot/113821850550186697",
       "updated": "2025-01-13T15:53:28Z",
       "image": "https://files.mastodon.social/accounts/avatars/109/252/092/189/918/292/original/d010861728a38beb.jpg"
@@ -646,7 +675,7 @@
       "name": "people",
       "type": "discussion_event",
       "id": "https://mastodon.social/@pahlkadot/112003396313784951",
-      "title": "<p>I'm writing on Substack now, and I'd love it if you'd subscribe! My first post talks about &quot;I-95-ness&quot; and how it might play out in the election.<br /><a href=\"https://eatingpolicy.substack.com/p/the-public-wants-i-95-ness?open=false\" rel=\"nofollow noopener\" target=\"_blank\"><span class=\"invisible\">https://</span><span class=\"ellipsis\">eatingpolicy.substack.com/p/th</span><span class=\"invisible\">e-public-wants-i-95-ness?open=false</span></a></p>",
+      "title": "<p>I'm writing on Substack now, and I'd love it if you'd subscribe! My first post talks about \"I-95-ness\" and how it might play out in the election.<br><a href=\"https://eatingpolicy.substack.com/p/the-public-wants-i-95-ness?open=false\" rel=\"noopener noreferrer\"><span>https://</span><span>eatingpolicy.substack.com/p/th</span><span>e-public-wants-i-95-ness?open=false</span></a></p>",
       "link": "https://mastodon.social/@pahlkadot/112003396313784951",
       "updated": "2024-02-27T12:16:38Z",
       "image": "https://files.mastodon.social/accounts/avatars/109/252/092/189/918/292/original/d010861728a38beb.jpg"
@@ -664,7 +693,7 @@
       "name": "people",
       "type": "discussion_event",
       "id": "https://mastodon.social/@pahlkadot/109382334733113518",
-      "title": "<p>Well, <span class=\"h-card\"><a class=\"u-url mention\" href=\"https://dan.mastohon.com/@danhon\">@<span>danhon</span></a></span> recommended Tomorrow, and Tomorrow, and Tomorrow on Twitter, but since I picked it up and read it, Twitter has sadly died. So closing the loop here instead. Amazing, beautiful, heartbreaking book.</p>",
+      "title": "<p>Well, <span><a href=\"https://dan.mastohon.com/@danhon\" rel=\"noopener noreferrer\">@<span>danhon</span></a></span> recommended Tomorrow, and Tomorrow, and Tomorrow on Twitter, but since I picked it up and read it, Twitter has sadly died. So closing the loop here instead. Amazing, beautiful, heartbreaking book.</p>",
       "link": "https://mastodon.social/@pahlkadot/109382334733113518",
       "updated": "2022-11-21T14:46:12Z",
       "image": "https://files.mastodon.social/accounts/avatars/109/252/092/189/918/292/original/d010861728a38beb.jpg"
