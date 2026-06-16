@@ -388,14 +388,21 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
 // a global <style> in light DOM. lit keeps this <style> stable across renders.
 const STYLE = html`
   <style>
+    :host {
+      container-type: inline-size; /* makes 100cqw = this component's width */
+    }
     .cg-wrap {
       font-family: system-ui, sans-serif;
       color: #ddd;
     }
     .cg-grid {
-      --cell: 40px;
+      /* cells shrink to fit the component width on small screens, capped at 40px.
+         tokens position via --cell too, so the avatar overlay scales in lockstep —
+         no scrolling, no overlay misalignment. */
+      --cell: min(40px, calc((100cqw - 8px) / var(--cols)));
       position: relative;
       display: inline-block;
+      max-width: 100%;
       padding: 2px;
       background: #1a1a1a;
       border-radius: 6px;
@@ -418,7 +425,7 @@ const STYLE = html`
       background: #2b2b2b;
       box-shadow: inset 0 0 0 1px #1a1a1a;
       color: #ddd;
-      font-size: 18px;
+      font-size: calc(var(--cell) * 0.45); /* content (e.g. 🔊) scales with the cell */
       cursor: pointer;
       display: flex;
       align-items: center;
