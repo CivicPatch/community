@@ -110,11 +110,9 @@ const TopicList = (
                                     ${friendlyTime(topicGroup.entries[0].updated)}
                                 </time>
                             </section>
-                            <section>
-                                ${topic.description &&
-                                    html`<p>${topic.description}</p>`
-                                }
-                            </section>
+                            ${topic.description
+                                ? html`<section><p>${topic.description}</p></section>`
+                                : ''}
                         </summary>
                         <dl class="topic-meta">
                             ${topic.url ? html`

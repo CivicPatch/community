@@ -101,7 +101,7 @@ interface ChatGridProps {
   'config-url'?: string
 }
 
-const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
+const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => {
   const [grid, setGrid] = useState<Grid | null>(null)
   const [rooms, setRooms] = useState<Map<string, number>>(new Map())
   const [errors, setErrors] = useState<string[]>([])
