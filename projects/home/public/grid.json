@@ -1,6 +1,6 @@
 {
-  "columns": 16,
-  "rows": 13,
+  "columns": 24,
+  "rows": 18,
   "spawn": { "col": 0, "row": 0 },
   "maxRoomCells": 6,
   "cells": [
@@ -48,6 +48,9 @@
     { "coord": { "col": 6, "row": 11 }, "color": "#2e2e44", "char": "F", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday.", "links": [{ "url": "https://meet.google.com/chk-fri-day", "label": "Join the Friday check-in" }] } },
     { "coord": { "col": 7, "row": 11 }, "color": "#2e2e44", "char": "R", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday.", "links": [{ "url": "https://meet.google.com/chk-fri-day", "label": "Join the Friday check-in" }] } },
     { "coord": { "col": 8, "row": 11 }, "color": "#2e2e44", "char": "I", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday.", "links": [{ "url": "https://meet.google.com/chk-fri-day", "label": "Join the Friday check-in" }] } },
+    { "coord": { "col": 9, "row": 11 }, "color": "#2e2e44", "char": "D", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday.", "links": [{ "url": "https://meet.google.com/chk-fri-day", "label": "Join the Friday check-in" }] } },
+    { "coord": { "col": 10, "row": 11 }, "color": "#2e2e44", "char": "A", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday.", "links": [{ "url": "https://meet.google.com/chk-fri-day", "label": "Join the Friday check-in" }] } },
+    { "coord": { "col": 11, "row": 11 }, "color": "#2e2e44", "char": "Y", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday.", "links": [{ "url": "https://meet.google.com/chk-fri-day", "label": "Join the Friday check-in" }] } },
 
     {
       "coord": { "col": 0, "row": 12 },

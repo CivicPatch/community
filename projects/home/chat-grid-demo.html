@@ -3,18 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>chat-grid — demo</title>
+    <title>hangouts</title>
     <!-- the site stylesheet provides the theme tokens (--ink/--bg/--accent…) and
          color-scheme: light dark; the component reads those through the shadow DOM -->
     <link rel="stylesheet" href="/src/index.css" />
     <style>
       body {
         margin: 2rem;
+        /* the site stylesheet adds padding-block: clamp(2rem, 8vh, 6rem) for the
+           text pages; the margin above already spaces this page, so drop it */
+        padding-block: 0;
       }
       /* widen the column for the grid + sidebar on THIS page only — the shared
          .content cap (60rem, src/index.css) is right for the text-heavy site pages */
       .content {
-        width: min(100% - 4rem, 76rem);
+        width: min(100% - 4rem, 84rem);
       }
       .note {
         max-width: 40rem;
@@ -27,12 +30,11 @@
     <!-- .content is the site's column wrapper; it stretches children to a sane
          width. Without it, body's `align-items: center` collapses the grid. -->
     <main class="content">
-      <h1>chat-grid</h1>
-      <p class="note">
-        Open in two tabs (or devices) to see multiplayer movement and proximity voice.
-        Click to focus, move with WASD / arrows or click a tile. Theme follows your
-        system light/dark setting.
-      </p>
+      <h1>hangouts</h1>
+      <ul class="note">
+        <li>WASD to move around</li>
+        <li>click to navigate</li>
+      </ul>
       <chat-grid config-url="/grid.json"></chat-grid>
     </main>
     <script type="module" src="/src/components/chat-grid/chat-grid.ts"></script>

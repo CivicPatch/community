@@ -220,33 +220,37 @@ coming. Just a boolean gating `playPing()`. (This is what "mute room noise" mean
 
 ---
 
-## Shared UI primitive — bubble surface
+## Shared UI primitive — ONE popover, parameterized
 
-The hover popover (`cg-pop`, `chat-grid.ts:502` / styles `:1126`), the **avatar status
-bubble** (F2), and the **toast** (F4) share the same *visual chrome* (small floating box,
-title + body, `--cg-pop` bg). Extract that styling into one surface class and reuse it
-across all three.
+The description hover (`cg-pop`), the **avatar status bubble** (F2), and the **toast**
+(F4) are the **same popover component** — same chrome, same open/close logic. They differ
+only in two parameters: **trigger** (what opens/closes it) and **placement** (where it
+sits). Do not write separate float components.
 
-Do **not** try to reuse the popover's behavior/structure — it's pure-CSS `:hover`,
-anchored inside a cell with grid-edge-flip math. They split on two axes:
+- **Trigger** — pointer (open while hovered) *or* timer (open on event, auto-close after a
+  TTL). Today `cg-pop` is pure-CSS `:hover`; **generalize so visibility is `open || hovered`** —
+  add a programmatic `open` path (an `.is-open` class / flag) *alongside* hover. The
+  description keeps the pointer trigger; bubble + toast flip `open` on a timer. The
+  open/close mechanism itself is shared (a tiny "auto" controller: open → schedule close).
+- **Placement** — cell-anchored + edge-aware (description), over-the-avatar (bubble),
+  fixed-corner stack (toast). Same box, different position; passed in.
 
-|                     | anchored to element  | fixed corner |
-|---------------------|----------------------|--------------|
-| **pointer lifecycle** | hover popover        | —            |
-| **timer lifecycle**   | avatar status bubble | toast        |
+| | trigger | placement |
+|---|---|---|
+| description | pointer (hover/focus) | cell-anchored, edge-aware |
+| status bubble | timer (fresh < BUBBLE_MS) | over the avatar |
+| toast | timer (TTL) | fixed corner, stacked + `role="status"`/`aria-live` |
 
-Shared surface; each owns its anchor + trigger. The avatar bubble and toast share the
-**timer-dismiss** lifecycle (build it once, in the bubble first), and the toast adds
-stacking + `role="status"` / `aria-live="polite"`.
+Extract to `render/popover.ts`; the open/close timer controller lives in the shell.
+(The bubble was initially built as a one-off `.cg-token-bubble`; retrofit it onto this
+shared popover.)
 
-**Hover-status reuses the whole popover, not just the chrome.** Hover is pointer-driven
-and element-anchored — identical to `cg-pop`. Don't build a separate float popover for it:
-**fold the occupant's status into the existing cell description popover** (when someone
-stands on a tile, append "name — status" to that tile's `cg-pop`). This is mandatory, not
-just tidy — tokens live in the `aria-hidden`, pointer-transparent `.cg-tokens` overlay, so
-a hover handler on a token can't fire; the *cell* beneath is what's hoverable. (Requires
-rendering `cg-pop` on occupied cells even when they have no description.) Only the
-timer-driven bubble + toast are genuinely separate surfaces.
+**Hover-status also reuses this — folded into the description popover.** When someone
+stands on a tile, append "name — status" to that tile's popover, rather than a token-hover
+popover. Mandatory, not just tidy: tokens live in the `aria-hidden`, pointer-transparent
+`.cg-tokens` overlay, so a hover handler on a token can't fire — the *cell* beneath is
+what's hoverable. (Requires rendering the popover on occupied cells even with no
+description.)
 
 ---
 
@@ -296,7 +300,9 @@ would come back — but it's out of scope now.)
 - Indications from diffing grace-smoothed `onPlayers`: reuses existing flap-debounce.
 - Chime on enters only, never status: avoids nag; statuses are already visible.
 - "Mute room noise" = chime mute, not voice-deafen: per user clarification.
-- Reuse popover *surface* only, not its hover/anchor behavior.
+- ONE popover component for description / bubble / toast; parameterize **trigger**
+  (pointer vs. timer) and **placement** — not three separate float components. Generalize
+  `cg-pop` visibility to `open || hovered` so a timer can drive it too.
 - Generalize `setAudioEnabled` → `updateSelf(patch)` rather than adding `setStatus`: one
   presence-update path instead of per-field plumbing across 4 files. Removes surface.
 - Pure ranking (`rankRoster`) and presence diff live in `core/` with tests; markup in

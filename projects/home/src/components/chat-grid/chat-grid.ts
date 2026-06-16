@@ -19,6 +19,7 @@ import { findPath } from './core/pathfind'
 import { validateGrid } from './core/validate'
 import { readableInk } from './core/color'
 import { renderCellGlyph } from './render/cell'
+import { popover } from './render/popover'
 import { createBackend } from './shell/backend'
 import { GITHUB_EDIT_URL } from './shell/config'
 import type { RealtimeBackend, VoiceState } from './shell/realtime'
@@ -517,6 +518,10 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
 
   if (!grid) return html`${STYLE}<div class="cg-wrap">Loading grid…</div>`
 
+  const columns = grid.columns // captured non-null (we returned early above) for closures
+  // edge-aware popover alignment shared by cells + token bubbles (no measuring needed)
+  const popAlign = (col: number): 'left' | 'right' | undefined =>
+    col < 3 ? 'left' : col >= columns - 3 ? 'right' : undefined
   const myRoom = myCoord ? roomOf(rooms, myCoord) : null
   const roomPeers = myCoord ? peersInRoom(rooms, myCoord, others) : []
   // whole-grid roster, with my audio blob promoted; blob === others in my room
@@ -556,17 +561,14 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
       // hover/focus preview popover (title + body), pure CSS — no JS state. The
       // FULL description (with links) shows in the side panel when you STAND here.
       const desc = cell?.description
-      // edge-aware popover placement (we know col/row, so no measuring): flip below
-      // on the top row, and align to the side near the left/right edges
-      const popCls = ['cg-pop']
-      if (row === 0) popCls.push('cg-pop-below')
-      if (col < 3) popCls.push('cg-pop-left')
-      else if (col >= grid.columns - 3) popCls.push('cg-pop-right')
+      // shown via the cell's CSS :hover (no `open`); edge-aware placement from col/row
       const pop = hasDesc
-        ? html`<span class=${popCls.join(' ')} aria-hidden="true">
-            ${desc?.title ? html`<span class="cg-pop-title">${desc.title}</span>` : ''}
-            ${desc?.body ? html`<span class="cg-pop-body">${desc.body}</span>` : ''}
-          </span>`
+        ? popover({
+            title: desc?.title,
+            body: desc?.body,
+            below: row === 0,
+            align: popAlign(col),
+          })
         : ''
       cells.push(
         link
@@ -620,7 +622,9 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     if (speaking) classes.push('cg-wiggling') // shake — anyone talking, grid-wide
     return html`
       <div class=${classes.join(' ')} style="--col:${c.col};--row:${c.row};--shake:${shake}">
-        ${bubble ? html`<span class="cg-token-bubble">${bubble}</span>` : ''}
+        ${bubble
+          ? popover({ body: bubble, open: true, below: c.row === 0, align: popAlign(c.col), extra: ['cg-pop-raise'] })
+          : ''}
         <span class="cg-token-avatar" aria-hidden="true">${avatar || '●'}</span>
         <span class="cg-token-name">${name}</span>
         ${isMuted ? html`<span class="cg-token-mute" aria-hidden="true">🔇</span>` : ''}
@@ -1319,6 +1323,15 @@ const STYLE = html`
     .cg-cell.cg-has-desc:focus-visible .cg-pop {
       display: block;
     }
+    /* timer-driven open (status bubble, toasts) — same chrome, shown via state not hover */
+    .cg-pop--open {
+      display: block;
+      z-index: 50;
+    }
+    /* extra clearance so a token's status bubble sits above its name label */
+    .cg-pop-raise {
+      margin-bottom: 18px;
+    }
     .cg-pop-title {
       display: block;
       font-weight: 600;
@@ -1431,21 +1444,6 @@ const STYLE = html`
     .cg-avatar-sel {
       border-color: var(--cg-accent);
       box-shadow: 0 0 0 2px var(--cg-accent) inset;
-    }
-    .cg-token-bubble {
-      position: absolute;
-      bottom: 115%;
-      max-width: 140px;
-      padding: 2px 7px;
-      font-size: 10px;
-      border-radius: 9px;
-      background: var(--cg-pop);
-      color: var(--cg-text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      box-shadow: 0 1px 3px #0006;
-      pointer-events: none;
     }
     .cg-you {
       display: flex;
