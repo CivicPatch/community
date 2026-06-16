@@ -86,6 +86,10 @@ const formatAgo = (ms: number): string => {
   return 'just now'
 }
 
+// Preset avatars for the join gate — emoji only. No uploaded images: that would need a
+// storage bucket, which the free / cannot-be-charged constraint rules out.
+const AVATARS = ['🦊', '🐙', '🐳', '🦉', '🐝', '🦋', '🐢', '🦄', '🐸', '🐱', '🦝', '🐧']
+
 interface ChatGridProps {
   'config-url'?: string
 }
@@ -105,6 +109,10 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const [blockedPeers, setBlocked] = useState<Set<string>>(new Set())
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null)
   const [voices, setVoices] = useState<Record<string, VoiceState>>({})
+  // pre-join identity gate: hold the chosen name + avatar until the user commits
+  const [joined, setJoined] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [avatarDraft, setAvatarDraft] = useState(AVATARS[0])
   // map editor
   const [config, setConfig] = useState<GridConfig | null>(null)
   const [mapMode, setMapMode] = useState(false)
@@ -210,7 +218,8 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
           if (!cancelled) setPeerStates(states)
         })
 
-        backend.join(player)
+        // NB: join() is deferred to the pre-join gate's submit (submitJoin) — we don't
+        // announce presence or subscribe until the user has picked a name + avatar.
       } catch (err) {
         if (!cancelled) setErrors([String(err)])
       }
@@ -437,6 +446,17 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     if (effects.includes('requestMic')) requestMic()
   }
 
+  // Pre-join gate submit: commit the chosen name + avatar onto our player, then join.
+  const submitJoin = () => {
+    if (joined || !me.current) return
+    const name = nameDraft.trim() || meName.current
+    meName.current = name
+    me.current.name = name
+    me.current.avatar = avatarDraft
+    backendRef.current?.join(me.current)
+    setJoined(true)
+  }
+
   const toggleMute = () => {
     const next = !muted
     setMuted(next)
@@ -545,6 +565,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const token = (
     c: Coord,
     name: string,
+    avatar: string | undefined,
     isMe: boolean,
     enabled: boolean,
     inBlob: boolean,
@@ -560,6 +581,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     if (speaking) classes.push('cg-wiggling') // shake — anyone talking, grid-wide
     return html`
       <div class=${classes.join(' ')} style="--col:${c.col};--row:${c.row};--shake:${shake}">
+        ${avatar ? html`<span class="cg-token-avatar" aria-hidden="true">${avatar}</span>` : ''}
         <span class="cg-token-name">${name}</span>
         <span class="cg-token-dot"></span>
         ${isMuted ? html`<span class="cg-token-mute" aria-hidden="true">🔇</span>` : ''}
@@ -634,6 +656,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
               token(
                 p.coord,
                 p.name,
+                p.avatar,
                 false,
                 p.audioEnabled ?? false,
                 myRoom !== null && roomOf(rooms, p.coord) === myRoom,
@@ -641,7 +664,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
               ),
             )}
             ${myCoord
-              ? token(myCoord, meName.current, true, gate === 'on', myRoom !== null, voices[meId.current])
+              ? token(myCoord, meName.current, me.current?.avatar, true, gate === 'on', myRoom !== null, voices[meId.current])
               : ''}
           </div>
         </div>
@@ -681,6 +704,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
                     }
                     return html`<li class="cg-roster-item ${isBlocked ? 'cg-blocked' : ''}">
                       <span class="cg-roster-status ${connected ? 'cg-on' : ''}" aria-hidden="true"></span>
+                      ${p.avatar ? html`<span class="cg-roster-avatar" aria-hidden="true">${p.avatar}</span>` : ''}
                       <span class="cg-roster-name">${p.name}</span>
                       ${gate === 'on' && !connected && !isBlocked
                         ? html`<span class="cg-roster-state">connecting…</span>`
@@ -749,11 +773,61 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
           </ul>`
         : ''}
       ${renderOverlay()}
+      ${joined ? '' : joinGate()}
     </div>
   `
 
   // The single open modal, chosen by the overlay's tag. Each case owns its markup;
   // there's no way to render two at once.
+  // The pre-join identity gate. Reuses the .cg-modal chrome but is intentionally NOT
+  // dismissible (no backdrop click, no Esc) — you must pick a name + avatar to enter.
+  function joinGate() {
+    return html`<div class="cg-modal-backdrop cg-gate-backdrop">
+      <div class="cg-modal" role="dialog" aria-modal="true" aria-label="Join the grid">
+        <h3 class="cg-modal-title">Join the grid</h3>
+        <form
+          class="cg-gate-form"
+          @submit=${(e: Event) => {
+            e.preventDefault()
+            submitJoin()
+          }}
+        >
+          <div class="cg-field">
+            <label for="cg-join-name">Name</label>
+            <input
+              id="cg-join-name"
+              autofocus
+              maxlength="24"
+              .value=${nameDraft}
+              placeholder=${meName.current}
+              @input=${(e: Event) => setNameDraft(inputValue(e))}
+            />
+          </div>
+          <div class="cg-field">
+            <label>Avatar</label>
+            <div class="cg-avatar-grid" role="radiogroup" aria-label="Choose an avatar">
+              ${AVATARS.map(
+                (a) => html`<button
+                  type="button"
+                  class="cg-avatar-opt ${avatarDraft === a ? 'cg-avatar-sel' : ''}"
+                  role="radio"
+                  aria-checked=${avatarDraft === a}
+                  aria-label=${`Avatar ${a}`}
+                  @click=${() => setAvatarDraft(a)}
+                >
+                  ${a}
+                </button>`,
+              )}
+            </div>
+          </div>
+          <div class="cg-modal-actions">
+            <button type="submit" class="cg-btn cg-btn-primary">Join the grid</button>
+          </div>
+        </form>
+      </div>
+    </div>`
+  }
+
   function renderOverlay() {
     switch (overlay.kind) {
       case 'none':
@@ -1213,6 +1287,44 @@ const STYLE = html`
       white-space: nowrap;
       /* outline against whatever tiles are behind it, in either theme */
       text-shadow: 0 0 3px var(--bg, #000), 0 1px 2px var(--bg, #000);
+    }
+    .cg-token-avatar {
+      position: absolute;
+      font-size: calc(var(--cell) * 0.55);
+      line-height: 1;
+      pointer-events: none;
+      filter: drop-shadow(0 1px 1px #0008);
+    }
+    .cg-roster-avatar {
+      font-size: 15px;
+      line-height: 1;
+    }
+    /* pre-join gate: reuses .cg-modal chrome; these just lay out the form bits */
+    .cg-gate-form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .cg-avatar-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+    }
+    .cg-avatar-opt {
+      font-size: 20px;
+      line-height: 1;
+      padding: 6px;
+      border: 1px solid var(--cg-border, #8888884d);
+      border-radius: 8px;
+      background: transparent;
+      cursor: pointer;
+    }
+    .cg-avatar-opt:hover {
+      background: var(--cg-cell-hover);
+    }
+    .cg-avatar-sel {
+      border-color: var(--cg-accent);
+      box-shadow: 0 0 0 2px var(--cg-accent) inset;
     }
     .cg-status {
       margin-top: 8px;
