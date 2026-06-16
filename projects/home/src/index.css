@@ -9,7 +9,7 @@
   /* light */
   --bg: #ffffff;
   --ink: #16171d;
-  --ink-soft: #6b6b73;
+  --ink-soft: #9c9ca3;
   --line: #16171d; /* hard rules = full ink */
   --line-soft: #e2e2e6;
   --accent: #c2401c;
@@ -30,7 +30,7 @@
     /* dark */
     --bg: #16171d;
     --ink: #f2f2f4;
-    --ink-soft: #8a8a93;
+    --ink-soft: #62636c;
     --line: #f2f2f4;
     --line-soft: #2c2d35;
     --accent: #f2754a;

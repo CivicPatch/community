@@ -30,6 +30,12 @@ interface TopicGroup {
   entries: FeedEntry[]
 }
 
+// titles arrive as HTML; flatten to plain text for use in attributes like alt
+const toPlainText = (value: string) =>
+    DOMPurify.sanitize(value ?? '', { ALLOWED_TAGS: [], ALLOWED_ATTR: [] })
+        .replace(/\s+/g, ' ')
+        .trim()
+
 const TopicList = (
     { 'feed-url': feedUrl = 'feeds.json' }) => {
     const [topics, setTopics] = useState<Record<string, Topic>>({})
@@ -114,11 +120,16 @@ const TopicList = (
                             ` : ''}
                         </dl>
                         <ol class="entries">
-                            ${topicGroup.entries.map((entry: any) => html`
+                            ${topicGroup.entries.map((entry: any) => {
+                                const title = toPlainText(entry.title)
+                                const altText = title
+                                    ? `Avatar of the author who posted: ${title.length > 80 ? title.slice(0, 80) + '…' : title}`
+                                    : 'Author avatar'
+                                return html`
                                 <li class="entry" data-type=${entry.type}>
                                     <div class="entry-body">
                                         ${entry.image &&
-                                            html`<img class="entry-thumb" src="${entry.image}" alt="">`
+                                            html`<img class="entry-thumb" src="${entry.image}" alt=${altText} loading="lazy">`
                                         }
                                         <a class="entry-title" href=${entry.link} target="_blank" rel="noopener">
                                             ${unsafeHTML(DOMPurify.sanitize(entry.title))}
@@ -132,8 +143,8 @@ const TopicList = (
                                             ${entry.updated.slice(0, 10)}
                                         </time>
                                     </div>
-                                </li>
-                            `)}
+                                </li>`
+                            })}
                         </ol>
                     </details>
                 </li>`
