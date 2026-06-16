@@ -14,6 +14,7 @@ type Msg =
   | { kind: 'leave'; id: PlayerId }
   | { kind: 'signal'; to: PlayerId; from: PlayerId; signal: Signal }
   | { kind: 'voice'; from: PlayerId; state: VoiceState }
+  | { kind: 'enabled'; id: PlayerId; enabled: boolean }
 
 export const createFakeBackend = (channelName = 'chat-grid'): RealtimeBackend => {
   const channel = new BroadcastChannel(channelName)
@@ -56,6 +57,14 @@ export const createFakeBackend = (channelName = 'chat-grid'): RealtimeBackend =>
       case 'voice':
         if (msg.from !== me?.id) voices.emit({ from: msg.from, state: msg.state })
         break
+      case 'enabled': {
+        const p = others.get(msg.id)
+        if (p) {
+          p.audioEnabled = msg.enabled
+          emit()
+        }
+        break
+      }
     }
   }
 
@@ -83,6 +92,11 @@ export const createFakeBackend = (channelName = 'chat-grid'): RealtimeBackend =>
     },
     onSignal(cb) {
       return signals.on(({ from, signal }) => cb(from, signal))
+    },
+    setAudioEnabled(enabled) {
+      if (!me) return
+      me.audioEnabled = enabled
+      channel.postMessage({ kind: 'enabled', id: me.id, enabled } satisfies Msg)
     },
     sendVoice(state) {
       if (!me) return

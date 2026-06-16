@@ -147,6 +147,11 @@ export const createSupabaseBackend = (
     onSignal(cb) {
       return signals.on(({ from, signal }) => cb(from, signal))
     },
+    setAudioEnabled(enabled) {
+      if (!me || !channel) return
+      me.audioEnabled = enabled
+      channel.track({ player: me }) // re-track so the flag syncs to everyone via presence
+    },
     sendVoice(state) {
       if (!me) return
       send('voice', { from: me.id, state })
