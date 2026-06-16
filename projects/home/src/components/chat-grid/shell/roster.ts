@@ -38,8 +38,10 @@ export const createRoster = (opts: {
       for (const p of present) {
         presentIds.add(p.id)
         cancelPending(p.id) // they're back (or never left) — keep them
-        if (!members.has(p.id)) members.set(p.id, { ...p })
-        // existing members keep their broadcast-updated coord, not the presence one
+        const existing = members.get(p.id)
+        // refresh presence-owned fields (name, audioEnabled) but keep the
+        // broadcast-owned coord, so a re-track doesn't snap them back to spawn
+        members.set(p.id, existing ? { ...p, coord: existing.coord } : { ...p })
       }
       for (const id of [...members.keys()]) {
         if (presentIds.has(id) || pending.has(id)) continue

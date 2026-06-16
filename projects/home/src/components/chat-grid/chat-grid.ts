@@ -66,8 +66,15 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const [voices, setVoices] = useState<Record<string, VoiceState>>({})
 
   // Mutable mirrors for use inside timers / the mount effect (avoid stale closures).
+  // Stable per-TAB id: survives a refresh (so a reload reuses the same presence
+  // key and replaces the old entry instead of leaving a ghost duplicate), but is
+  // unique per tab (sessionStorage isn't shared across tabs) so multi-tab works.
   const meId = useRef<string>('')
-  if (!meId.current) meId.current = crypto.randomUUID()
+  if (!meId.current) {
+    const stored = sessionStorage.getItem('chat-grid-id')
+    meId.current = stored ?? crypto.randomUUID()
+    if (!stored) sessionStorage.setItem('chat-grid-id', meId.current)
+  }
   const meName = useRef<string>('')
   if (!meName.current) meName.current = `Guest ${meId.current.slice(0, 4)}`
   const me = useRef<Player | null>(null)
@@ -75,6 +82,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const meshRef = useRef<MeshAudio | null>(null)
   const meterRef = useRef<Meter | null>(null)
   const voicesRef = useRef<Record<string, VoiceState>>({})
+  const mutedRef = useRef(false)
   const gateRef = useRef<AudioGateState>(initialGate)
   const micRef = useRef<MediaStream | null>(null)
   const streamsRef = useRef<Record<string, MediaStream | null>>({})
@@ -238,19 +246,25 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     setVoices(voicesRef.current)
   }
 
+  const broadcastVoice = (v: VoiceState) => {
+    updateVoice(meId.current, v) // reflect locally
+    backendRef.current?.sendVoice(v) // and tell everyone
+  }
+
   const requestMic = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       micRef.current = stream
       stream.getAudioTracks().forEach((t) => (t.enabled = false)) // the effect enables it when in a room
       meshRef.current?.setMic(stream)
-      // meter OUR OWN mic and broadcast the result, so every client can show us
-      // wiggling grid-wide (no need to analyze audio we don't receive)
+      if (me.current) me.current.audioEnabled = true
+      backendRef.current?.setAudioEnabled(true) // green ring = "enabled audio", synced to all
+      // meter OUR OWN mic and broadcast the result (speaking + muted) so every
+      // client can show us wiggling / muted grid-wide
       if (!meterRef.current)
         meterRef.current = createMeter((samples) => {
           const mine = samples[meId.current] ?? { speaking: false, bucket: 0 }
-          updateVoice(meId.current, mine)
-          backendRef.current?.sendVoice(mine)
+          broadcastVoice({ ...mine, muted: mutedRef.current })
         })
       meterRef.current.add(meId.current, stream)
       dispatchGate('granted')
@@ -266,7 +280,12 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     if (effects.includes('requestMic')) requestMic()
   }
 
-  const toggleMute = () => setMuted(!muted) // the mic-live effect applies it to the tracks
+  const toggleMute = () => {
+    const next = !muted
+    setMuted(next)
+    mutedRef.current = next
+    broadcastVoice({ speaking: false, bucket: 0, muted: next }) // tell everyone immediately
+  }
 
   // Per-person mute: silence one peer's incoming audio while staying connected.
   const toggleMutePeer = (id: string) => {
@@ -288,6 +307,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const roomPeers = myCoord ? peersInRoom(rooms, myCoord, others) : []
   const roomPeerPlayers =
     myRoom === null ? [] : others.filter((p) => roomOf(rooms, p.coord) === myRoom)
+  const connectedCount = roomPeerPlayers.filter((p) => peerStates[p.id] === 'connected').length
 
   const cells = []
   for (let row = 0; row < grid.rows; row++) {
@@ -315,18 +335,27 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     }
   }
 
-  const token = (c: Coord, name: string, isMe: boolean, connected = false, voice?: VoiceState) => {
+  const token = (
+    c: Coord,
+    name: string,
+    isMe: boolean,
+    enabled: boolean,
+    inBlob: boolean,
+    voice?: VoiceState,
+  ) => {
     const speaking = voice?.speaking ?? false
     const shake = voice?.bucket ?? 0
+    const isMuted = voice?.muted ?? false
     const classes = ['cg-token']
     if (isMe) classes.push('cg-me')
-    if (connected) classes.push('cg-connected') // green ring — in your blob
-    if (speaking && connected) classes.push('cg-speaking') // white ring — talking in your blob
+    if (enabled) classes.push('cg-enabled') // green ring — has enabled audio (everyone sees it)
+    if (speaking && inBlob) classes.push('cg-speaking') // white ring — talking in your blob
     if (speaking) classes.push('cg-wiggling') // shake — anyone talking, grid-wide
     return html`
       <div class=${classes.join(' ')} style="--col:${c.col};--row:${c.row};--shake:${shake}">
         <span class="cg-token-name">${name}</span>
         <span class="cg-token-dot"></span>
+        ${isMuted ? html`<span class="cg-token-mute" aria-hidden="true">🔇</span>` : ''}
       </div>
     `
   }
@@ -343,10 +372,17 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
         <div class="cg-cells">${cells}</div>
         <div class="cg-tokens">
           ${others.map((p) =>
-            token(p.coord, p.name, false, peerStates[p.id] === 'connected', voices[p.id]),
+            token(
+              p.coord,
+              p.name,
+              false,
+              p.audioEnabled ?? false,
+              myRoom !== null && roomOf(rooms, p.coord) === myRoom,
+              voices[p.id],
+            ),
           )}
           ${myCoord
-            ? token(myCoord, meName.current, true, myRoom !== null, voices[meId.current])
+            ? token(myCoord, meName.current, true, gate === 'on', myRoom !== null, voices[meId.current])
             : ''}
         </div>
       </div>
@@ -372,7 +408,9 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
                 ? 'step onto an audio tile to talk'
                 : roomPeers.length === 0
                   ? 'no one else in this room yet'
-                  : `talking with ${roomPeers.length}`}
+                  : connectedCount === 0
+                    ? 'connecting… (others must enable audio too)'
+                    : `talking with ${connectedCount}`}
             </span>`
           : ''}
       </div>
@@ -393,6 +431,9 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
                     return html`<li class="cg-roster-item ${isBlocked ? 'cg-blocked' : ''}">
                       <span class="cg-roster-status ${connected ? 'cg-on' : ''}" aria-hidden="true"></span>
                       <span class="cg-roster-name">${p.name}</span>
+                      ${gate === 'on' && !connected && !isBlocked
+                        ? html`<span class="cg-roster-state">connecting…</span>`
+                        : ''}
                       <span class="cg-visually-hidden">
                         ${isBlocked ? 'blocked' : connected ? 'connected' : 'connecting'}${isMuted ? ', muted' : ''}
                       </span>
@@ -616,12 +657,20 @@ const STYLE = html`
       color: #888;
       font-size: 12px;
     }
-    .cg-token.cg-connected .cg-token-dot {
-      box-shadow: 0 0 0 2px #5c6, 0 0 6px #5c6;
+    .cg-token.cg-enabled .cg-token-dot {
+      box-shadow: 0 0 0 3px #4ade4a, 0 0 9px 3px rgba(74, 222, 74, 0.75);
+    }
+    .cg-token-mute {
+      position: absolute;
+      right: -2px;
+      bottom: -2px;
+      font-size: calc(var(--cell) * 0.34);
+      line-height: 1;
+      filter: drop-shadow(0 1px 1px #000);
     }
     /* speaking ring (VAD): only for people in YOUR blob — the "light" indicator */
     .cg-token.cg-speaking .cg-token-dot {
-      box-shadow: 0 0 0 2px #fff, 0 0 10px 2px rgba(255, 255, 255, 0.6);
+      box-shadow: 0 0 0 3px #fff, 0 0 12px 3px rgba(255, 255, 255, 0.8);
     }
     /* wiggle (audio-reactive, amplitude = --shake): grid-wide, anyone talking */
     .cg-token.cg-wiggling .cg-token-dot {
@@ -685,6 +734,11 @@ const STYLE = html`
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .cg-roster-state {
+      flex: 0 0 auto;
+      color: #888;
+      font-size: 11px;
     }
     .cg-roster-btn {
       flex: 0 0 auto;

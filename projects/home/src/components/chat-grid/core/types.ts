@@ -39,6 +39,8 @@ export interface Player {
   id: PlayerId
   name: string
   coord: Coord
+  /** has this player turned on their mic? (presence-synced, so everyone sees it) */
+  audioEnabled?: boolean
 }
 
 /** Connected-component index from the flood fill. Coords with no audio room are absent. */
