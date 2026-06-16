@@ -2,17 +2,29 @@
 
 export type Coord = { col: number; row: number }
 
-/** Discriminated union — v1 ships `audio` only; text/link/meet drop in later. */
-export type CellContent =
-  | { type: 'audio' }
-
+/**
+ * A cell composes optional APPEARANCE layers with optional BEHAVIOR roles, so any
+ * combination is valid (e.g. an audio tile with a custom sprite, or a coloured
+ * link). This replaced a one-type-per-cell union precisely so things compose.
+ */
 export interface Cell {
   coord: Coord
-  content?: CellContent
-  /** presentation only, independent of content type (e.g. floor colour) */
-  style?: { color?: string }
   /** defaults to true; non-walkable cells block movement and pathfinding */
   walkable?: boolean
+
+  // --- appearance (composable) ---
+  /** background fill colour */
+  color?: string
+  /** background image / sprite url */
+  image?: string
+  /** a single character drawn on the tile (signs, art) */
+  char?: string
+
+  // --- behavior (composable) ---
+  /** proximity-voice zone */
+  audio?: boolean
+  /** clickable kiosk — rendered as a real <a>, opens in a new tab */
+  link?: { url: string; label?: string; summary?: string }
 }
 
 export interface GridConfig {

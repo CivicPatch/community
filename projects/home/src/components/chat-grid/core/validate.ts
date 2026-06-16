@@ -18,10 +18,12 @@ export const validateGrid = (config: GridConfig): string[] => {
   const seen = new Set<string>()
   for (const cell of config.cells) {
     const key = coordKey(cell.coord)
-    if (!inBounds(grid, cell.coord))
-      errors.push(`cell out of bounds: ${key}`)
+    if (!inBounds(grid, cell.coord)) errors.push(`cell out of bounds: ${key}`)
     if (seen.has(key)) errors.push(`duplicate cell at ${key}`)
     seen.add(key)
+    if (cell.char !== undefined && [...cell.char].length !== 1)
+      errors.push(`cell ${key}: char must be exactly one character`)
+    if (cell.link && !cell.link.url) errors.push(`cell ${key}: link is missing a url`)
   }
 
   if (config.spawn && !inBounds(grid, config.spawn))

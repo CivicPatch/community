@@ -10,7 +10,7 @@ export const buildRooms = (grid: Grid): Map<string, RoomId> => {
   let next: RoomId = 0
 
   for (const [key, cell] of grid.cells) {
-    if (cell.content?.type !== 'audio' || rooms.has(key)) continue
+    if (!cell.audio || rooms.has(key)) continue
 
     const queue: Coord[] = [cell.coord]
     rooms.set(key, next)

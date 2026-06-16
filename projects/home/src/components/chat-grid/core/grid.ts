@@ -25,8 +25,7 @@ export const isWalkable = (grid: Grid, c: Coord): boolean => {
   return cellAt(grid, c)?.walkable !== false
 }
 
-export const isAudio = (grid: Grid, c: Coord): boolean =>
-  cellAt(grid, c)?.content?.type === 'audio'
+export const isAudio = (grid: Grid, c: Coord): boolean => cellAt(grid, c)?.audio === true
 
 /** 4-directional (orthogonal) in-bounds neighbours — matches WASD movement. */
 export const neighbors = (grid: Grid, c: Coord): Coord[] => {

@@ -16,9 +16,9 @@ const config: GridConfig = {
   columns: 5,
   rows: 4,
   cells: [
-    { coord: { col: 1, row: 1 }, content: { type: 'audio' } },
+    { coord: { col: 1, row: 1 }, audio: true },
     { coord: { col: 2, row: 2 }, walkable: false },
-    { coord: { col: 0, row: 0 }, style: { color: '#f00' } },
+    { coord: { col: 0, row: 0 }, color: '#f00' },
   ],
 }
 const grid = buildGrid(config)
@@ -35,7 +35,7 @@ describe('buildGrid / cellAt', () => {
   it('indexes only the special cells', () => {
     expect(grid.columns).toBe(5)
     expect(grid.cells.size).toBe(3)
-    expect(cellAt(grid, { col: 1, row: 1 })?.content?.type).toBe('audio')
+    expect(cellAt(grid, { col: 1, row: 1 })?.audio).toBe(true)
     expect(cellAt(grid, { col: 4, row: 3 })).toBeUndefined()
   })
 })

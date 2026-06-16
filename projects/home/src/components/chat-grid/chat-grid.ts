@@ -11,7 +11,7 @@ import { buildRooms, peersInRoom, roomOf } from './core/rooms'
 import { applyDelta, canEnter, keyToDelta } from './core/movement'
 import { findPath } from './core/pathfind'
 import { validateGrid } from './core/validate'
-import { renderCellContent } from './render/cell'
+import { renderCellGlyph } from './render/cell'
 import { createBackend } from './shell/backend'
 import type { RealtimeBackend, VoiceState } from './shell/realtime'
 import { createMeshAudio } from './shell/webrtc'
@@ -314,24 +314,54 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
     for (let col = 0; col < grid.columns; col++) {
       const coord = { col, row }
       const cell = cellAt(grid, coord)
-      const isAudioCell = cell?.content?.type === 'audio'
+      const isAudioCell = cell?.audio === true
+      const link = cell?.link ?? null
       const wall = cell?.walkable === false
       const activeRoom = isAudioCell && myRoom !== null && roomOf(rooms, coord) === myRoom
       const classes = ['cg-cell']
       if (isAudioCell) classes.push('cg-audio')
       if (activeRoom) classes.push('cg-active-room')
+      if (link) classes.push('cg-link')
       if (wall) classes.push('cg-wall')
-      cells.push(html`
-        <button
-          class=${classes.join(' ')}
-          style=${cell?.style?.color ? `background:${cell.style.color}` : ''}
-          ?disabled=${wall}
-          title=${`${col},${row}`}
-          @click=${() => onCellClick(coord)}
-        >
-          ${renderCellContent(cell)}
-        </button>
-      `)
+      // compose the visual background: colour fill + image, both optional
+      const bg = [
+        cell?.color ? `background-color:${cell.color}` : '',
+        cell?.image ? `background-image:url(${cell.image});background-size:cover;background-position:center` : '',
+      ]
+        .filter(Boolean)
+        .join(';')
+      cells.push(
+        link
+          ? // a real anchor: native new-tab, middle-click, screen-reader "link", no popup-blocker.
+            // hover/focus pops a tooltip with the url + optional summary (CSS-driven).
+            html`<a
+              class=${classes.join(' ')}
+              style=${bg}
+              href=${link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label=${`Open link: ${link.label ?? link.url}${
+                link.summary ? `. ${link.summary}` : ''
+              }`}
+            >
+              ${renderCellGlyph(cell)}
+              <span class="cg-link-pop" aria-hidden="true">
+                <span class="cg-link-pop-url">${link.url}</span>
+                ${link.summary
+                  ? html`<span class="cg-link-pop-summary">${link.summary}</span>`
+                  : ''}
+              </span>
+            </a>`
+          : html`<button
+              class=${classes.join(' ')}
+              style=${bg}
+              ?disabled=${wall}
+              title=${`${col},${row}`}
+              @click=${() => onCellClick(coord)}
+            >
+              ${renderCellGlyph(cell)}
+            </button>`,
+      )
     }
   }
 
@@ -541,6 +571,7 @@ const STYLE = html`
       background: #2b2b2b;
       box-shadow: inset 0 0 0 1px #1a1a1a;
       color: #ddd;
+      text-decoration: none; /* the anchor (link tiles) shouldn't be underlined */
       font-size: calc(var(--cell) * 0.45); /* content (e.g. 🔊) scales with the cell */
       cursor: pointer;
       display: flex;
@@ -560,6 +591,50 @@ const STYLE = html`
     .cg-cell.cg-wall {
       background: #111;
       cursor: default;
+    }
+    .cg-cell.cg-link {
+      color: #9cf;
+      position: relative; /* anchor for the hover popover */
+    }
+    .cg-cell.cg-link:hover {
+      background: #2a3a4a;
+    }
+    .cg-cell-char {
+      font-weight: 600;
+    }
+    /* link hover/focus popover: the actual url + optional summary */
+    .cg-link-pop {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-bottom: 6px;
+      z-index: 30;
+      display: none;
+      width: max-content;
+      max-width: 220px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: #0f0f0f;
+      box-shadow: 0 2px 10px #000a;
+      font-size: 12px;
+      font-weight: 400;
+      text-align: left;
+      white-space: normal;
+    }
+    .cg-cell.cg-link:hover .cg-link-pop,
+    .cg-cell.cg-link:focus-visible .cg-link-pop {
+      display: block;
+    }
+    .cg-link-pop-url {
+      display: block;
+      color: #9cf;
+      word-break: break-all;
+    }
+    .cg-link-pop-summary {
+      display: block;
+      margin-top: 4px;
+      color: #bbb;
     }
     .cg-tokens {
       position: absolute;

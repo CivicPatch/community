@@ -2,10 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { GridConfig } from './types'
 import { validateGrid } from './validate'
 
-const audio = (col: number, row: number) => ({
-  coord: { col, row },
-  content: { type: 'audio' as const },
-})
+const audio = (col: number, row: number) => ({ coord: { col, row }, audio: true })
 
 describe('validateGrid', () => {
   it('passes a sane config', () => {
@@ -46,5 +43,19 @@ describe('validateGrid', () => {
 
   it('flags non-positive dimensions', () => {
     expect(validateGrid({ columns: 0, rows: 5, cells: [] }).length).toBeGreaterThan(0)
+  })
+
+  it('flags a multi-character text cell', () => {
+    const errs = validateGrid({ columns: 3, rows: 3, cells: [{ coord: { col: 0, row: 0 }, char: 'ab' }] })
+    expect(errs.some((e) => e.includes('one character'))).toBe(true)
+  })
+
+  it('accepts a single character (incl. emoji)', () => {
+    expect(validateGrid({ columns: 3, rows: 3, cells: [{ coord: { col: 0, row: 0 }, char: '🎤' }] })).toEqual([])
+  })
+
+  it('flags a link with no url', () => {
+    const errs = validateGrid({ columns: 3, rows: 3, cells: [{ coord: { col: 0, row: 0 }, link: { url: '' } }] })
+    expect(errs.some((e) => e.includes('missing a url'))).toBe(true)
   })
 })
