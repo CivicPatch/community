@@ -1,6 +1,6 @@
 {
-  "columns": 12,
-  "rows": 8,
+  "columns": 16,
+  "rows": 13,
   "spawn": { "col": 0, "row": 0 },
   "maxRoomCells": 6,
   "cells": [
@@ -18,10 +18,50 @@
     { "coord": { "col": 6, "row": 3 }, "walkable": false },
     { "coord": { "col": 6, "row": 4 }, "walkable": false },
 
-    { "coord": { "col": 0, "row": 7 }, "color": "#3a5a3a" },
-    { "coord": { "col": 11, "row": 0 }, "color": "#5a3a3a" },
+    { "coord": { "col": 13, "row": 0 }, "color": "#5a3a3a" },
     { "coord": { "col": 5, "row": 5 }, "color": "#3a3a5a", "char": "S" },
 
-    { "coord": { "col": 10, "row": 2 }, "link": { "url": "https://civictech.guide", "label": "?", "summary": "Civic Tech Field Guide — a directory of civic tech projects." } }
+    {
+      "coord": { "col": 10, "row": 2 },
+      "link": { "url": "https://civictech.guide", "label": "?" },
+      "description": {
+        "title": "Civic Tech Field Guide",
+        "body": "A directory of civic tech projects.",
+        "links": [{ "url": "https://civictech.guide", "label": "Open the guide" }]
+      }
+    },
+
+    { "coord": { "col": 0, "row": 10 }, "color": "#2e2e44", "char": "C", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 1, "row": 10 }, "color": "#2e2e44", "char": "H", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 2, "row": 10 }, "color": "#2e2e44", "char": "E", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 3, "row": 10 }, "color": "#2e2e44", "char": "C", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 4, "row": 10 }, "color": "#2e2e44", "char": "K", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 6, "row": 10 }, "color": "#2e2e44", "char": "I", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 7, "row": 10 }, "color": "#2e2e44", "char": "N", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+
+    { "coord": { "col": 0, "row": 11 }, "color": "#2e2e44", "char": "E", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 1, "row": 11 }, "color": "#2e2e44", "char": "V", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 2, "row": 11 }, "color": "#2e2e44", "char": "E", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 3, "row": 11 }, "color": "#2e2e44", "char": "R", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 4, "row": 11 }, "color": "#2e2e44", "char": "Y", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 6, "row": 11 }, "color": "#2e2e44", "char": "F", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 7, "row": 11 }, "color": "#2e2e44", "char": "R", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+    { "coord": { "col": 8, "row": 11 }, "color": "#2e2e44", "char": "I", "description": { "title": "Check-in", "body": "Walk in to check in — every Friday." } },
+
+    {
+      "coord": { "col": 0, "row": 12 },
+      "link": { "url": "https://meet.google.com/abc-defg-hij", "label": "📹" },
+      "description": { "title": "Standup", "body": "Daily 10am sync. Click to join." }
+    },
+    {
+      "coord": { "col": 2, "row": 12 },
+      "link": { "url": "https://meet.google.com/klm-nopq-rst", "label": "📹" },
+      "description": { "title": "Office Hours", "body": "Drop in with questions. Click to join." }
+    },
+    {
+      "coord": { "col": 4, "row": 12 },
+      "link": { "url": "https://meet.google.com/uvw-xyz0-123", "label": "📹" },
+      "description": { "title": "Social", "body": "Hang out, no agenda. Click to join." }
+    }
   ]
 }

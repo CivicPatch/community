@@ -53,6 +53,19 @@ describe('bounds & walkability', () => {
     expect(isWalkable(grid, { col: 9, row: 9 })).toBe(false) // oob
   })
 
+  it('treats link kiosks as non-walkable by default, but honors an explicit override', () => {
+    const g = buildGrid({
+      columns: 3,
+      rows: 1,
+      cells: [
+        { coord: { col: 0, row: 0 }, link: { url: 'x' } },
+        { coord: { col: 1, row: 0 }, link: { url: 'x' }, walkable: true },
+      ],
+    })
+    expect(isWalkable(g, { col: 0, row: 0 })).toBe(false) // kiosk blocks
+    expect(isWalkable(g, { col: 1, row: 0 })).toBe(true) // explicit override
+  })
+
   it('detects audio cells', () => {
     expect(isAudio(grid, { col: 1, row: 1 })).toBe(true)
     expect(isAudio(grid, { col: 0, row: 0 })).toBe(false)
