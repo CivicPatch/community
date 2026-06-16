@@ -3,19 +3,21 @@
 // Swappable for the real Supabase backend behind the RealtimeBackend interface.
 
 import type { Coord, Player, PlayerId } from '../core/types'
-import type { RealtimeBackend } from './realtime'
+import type { RealtimeBackend, Signal } from './realtime'
 
 type Msg =
   | { kind: 'join'; player: Player }
   | { kind: 'hello'; player: Player }
   | { kind: 'move'; id: PlayerId; coord: Coord }
   | { kind: 'leave'; id: PlayerId }
+  | { kind: 'signal'; to: PlayerId; from: PlayerId; signal: Signal }
 
 export const createFakeBackend = (channelName = 'chat-grid'): RealtimeBackend => {
   const channel = new BroadcastChannel(channelName)
   const others = new Map<PlayerId, Player>()
   let me: Player | null = null
   let listeners: ((others: Player[]) => void)[] = []
+  let signalListeners: ((from: PlayerId, signal: Signal) => void)[] = []
 
   const emit = () => {
     const snapshot = [...others.values()]
@@ -48,6 +50,10 @@ export const createFakeBackend = (channelName = 'chat-grid'): RealtimeBackend =>
       case 'leave':
         if (others.delete(msg.id)) emit()
         break
+      case 'signal':
+        if (msg.to !== me?.id) return
+        for (const cb of signalListeners) cb(msg.from, msg.signal)
+        break
     }
   }
 
@@ -71,6 +77,16 @@ export const createFakeBackend = (channelName = 'chat-grid'): RealtimeBackend =>
     onStatus(cb) {
       cb('connected') // the local fake is always "connected"
       return () => {}
+    },
+    sendSignal(to, signal) {
+      if (!me) return
+      channel.postMessage({ kind: 'signal', to, from: me.id, signal } satisfies Msg)
+    },
+    onSignal(cb) {
+      signalListeners.push(cb)
+      return () => {
+        signalListeners = signalListeners.filter((l) => l !== cb)
+      }
     },
     leave() {
       if (me) channel.postMessage({ kind: 'leave', id: me.id } satisfies Msg)
