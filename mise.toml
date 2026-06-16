@@ -17,7 +17,7 @@ pre-commit install
 [tasks.feeds]
 dir = "{{ config_root }}"
 run = """
-uv run python projects/feeds/src/main.py
+uv run --package feeds python projects/feeds/src/main.py
 """
 
 [tasks.home-dev]
