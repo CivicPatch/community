@@ -5,7 +5,7 @@ requires-python = ">=3.13"
 [manifest]
 members = [
     "community",
-    "unified-feeds",
+    "feeds",
 ]
 
 [[package]]
@@ -270,7 +270,7 @@ wheels = [
 ]
 
 [[package]]
-name = "unified-feeds"
+name = "feeds"
 version = "0.1.0"
 source = { virtual = "projects/feeds" }
 dependencies = [
