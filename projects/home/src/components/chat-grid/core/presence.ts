@@ -2,7 +2,31 @@
 // passed in, so callers (and tests) stay deterministic.
 
 import { roomOf } from './rooms'
-import type { Coord, Player, RoomId } from './types'
+import type { Coord, Player, PlayerId, RoomId } from './types'
+
+export interface PresenceDiff {
+  joined: PlayerId[]
+  left: PlayerId[]
+  /** posted or changed to a NON-empty status (clearing a status doesn't count) */
+  statusPosted: PlayerId[]
+}
+
+/** What changed between two roster snapshots — the trigger source for join/leave/status
+ *  sounds. Pure: feed it the grace-smoothed `onPlayers` snapshots. A newcomer who already
+ *  has a status counts as `joined`, not `statusPosted` (no double-fire). */
+export const diffPresence = (prev: Player[], next: Player[]): PresenceDiff => {
+  const prevById = new Map(prev.map((p) => [p.id, p]))
+  const nextIds = new Set(next.map((p) => p.id))
+  const joined: PlayerId[] = []
+  const statusPosted: PlayerId[] = []
+  for (const p of next) {
+    const before = prevById.get(p.id)
+    if (!before) joined.push(p.id)
+    else if (p.status && p.statusAt !== before.statusAt) statusPosted.push(p.id)
+  }
+  const left = prev.filter((p) => !nextIds.has(p.id)).map((p) => p.id)
+  return { joined, left, statusPosted }
+}
 
 export interface RankedRoster {
   /** others in MY audio room (people I can hear) — promoted under "You" */
