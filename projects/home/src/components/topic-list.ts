@@ -105,7 +105,7 @@ const TopicList = (
                         <summary>
                             <section>
                                 <span class="marker" aria-hidden="true"></span>
-                                <h2><span class="topic-type-${topic.type}">${topic.type}</span> ${topic.display_name ?? topic.name}</h2>
+                                <h2>${topic.display_name ?? topic.name} <span class="topic-type-${topic.type}">${topic.type}</span></h2>
                                 <time class="timestamp" datetime=${topicGroup.entries[0].updated}>
                                     ${friendlyTime(topicGroup.entries[0].updated)}
                                 </time>
