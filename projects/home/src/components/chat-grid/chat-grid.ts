@@ -58,6 +58,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const [muted, setMuted] = useState(false)
   const [peerStates, setPeerStates] = useState<Record<string, PeerState>>({})
   const [streams, setStreams] = useState<Record<string, MediaStream | null>>({})
+  const [mutedPeers, setMutedPeers] = useState<Set<string>>(new Set())
 
   // Mutable mirrors for use inside timers / the mount effect (avoid stale closures).
   const meId = useRef<string>('')
@@ -233,10 +234,19 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
 
   const toggleMute = () => setMuted(!muted) // the mic-live effect applies it to the tracks
 
+  // Per-person mute: silence one peer's incoming audio while staying connected.
+  const toggleMutePeer = (id: string) => {
+    const next = new Set(mutedPeers)
+    next.has(id) ? next.delete(id) : next.add(id)
+    setMutedPeers(next)
+  }
+
   if (!grid) return html`${STYLE}<div class="cg-wrap">Loading grid…</div>`
 
   const myRoom = myCoord ? roomOf(rooms, myCoord) : null
   const roomPeers = myCoord ? peersInRoom(rooms, myCoord, others) : []
+  const roomPeerPlayers =
+    myRoom === null ? [] : others.filter((p) => roomOf(rooms, p.coord) === myRoom)
 
   const cells = []
   for (let row = 0; row < grid.rows; row++) {
@@ -315,12 +325,43 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
             </span>`
           : ''}
       </div>
+      ${myRoom !== null
+        ? html`<section class="cg-roster" aria-label="People in your audio room">
+            ${roomPeerPlayers.length === 0
+              ? html`<p class="cg-roster-empty">No one else in this room yet.</p>`
+              : html`<ul class="cg-roster-list">
+                  ${roomPeerPlayers.map((p) => {
+                    const connected = peerStates[p.id] === 'connected'
+                    const isMuted = mutedPeers.has(p.id)
+                    return html`<li class="cg-roster-item">
+                      <span class="cg-roster-status ${connected ? 'cg-on' : ''}" aria-hidden="true"></span>
+                      <span class="cg-roster-name">${p.name}</span>
+                      <span class="cg-visually-hidden">${connected ? 'connected' : 'connecting'}</span>
+                      <button
+                        class="cg-btn cg-roster-btn"
+                        aria-pressed=${isMuted}
+                        aria-label=${`${isMuted ? 'Unmute' : 'Mute'} ${p.name}`}
+                        @click=${() => toggleMutePeer(p.id)}
+                      >
+                        ${isMuted ? '🔇 Muted' : '🔈 Mute'}
+                      </button>
+                    </li>`
+                  })}
+                </ul>`}
+          </section>`
+        : ''}
       <!-- hidden audio sinks; keyed by peer id so playback isn't interrupted on re-render -->
       <div class="cg-audio-sinks" hidden>
         ${repeat(
           Object.entries(streams).filter(([, s]) => s),
           ([id]) => id,
-          ([id, s]) => html`<audio autoplay data-peer=${id} .srcObject=${s}></audio>`,
+          ([id, s]) =>
+            html`<audio
+              autoplay
+              data-peer=${id}
+              .srcObject=${s}
+              .muted=${mutedPeers.has(id)}
+            ></audio>`,
         )}
       </div>
       <div class="cg-status">
@@ -470,7 +511,8 @@ const STYLE = html`
     .cg-btn {
       font: inherit;
       font-size: 13px;
-      padding: 4px 10px;
+      min-height: 40px; /* comfortable touch target */
+      padding: 6px 12px;
       border: 1px solid #444;
       border-radius: 6px;
       background: #2b2b2b;
@@ -479,6 +521,10 @@ const STYLE = html`
     }
     .cg-btn:hover:not(:disabled) {
       background: #3a3a3a;
+    }
+    .cg-btn:focus-visible {
+      outline: 2px solid #6cf;
+      outline-offset: 2px;
     }
     .cg-btn:disabled {
       opacity: 0.6;
@@ -490,6 +536,61 @@ const STYLE = html`
     }
     .cg-token.cg-connected .cg-token-dot {
       box-shadow: 0 0 0 2px #5c6, 0 0 6px #5c6;
+    }
+    .cg-roster {
+      margin-top: 8px;
+    }
+    .cg-roster-empty {
+      margin: 0;
+      font-size: 12px;
+      color: #888;
+    }
+    .cg-roster-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 320px;
+    }
+    .cg-roster-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+    }
+    .cg-roster-status {
+      flex: 0 0 auto;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #666;
+    }
+    .cg-roster-status.cg-on {
+      background: #5c6;
+    }
+    .cg-roster-name {
+      flex: 1 1 auto;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .cg-roster-btn {
+      flex: 0 0 auto;
+    }
+    .cg-visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      border: 0;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      overflow: hidden;
+      white-space: nowrap;
     }
     .cg-errors {
       margin-top: 8px;
