@@ -3,10 +3,7 @@ import type { GridConfig, Player } from './types'
 import { buildGrid } from './grid'
 import { buildRooms, peersInRoom, roomOf } from './rooms'
 
-const audio = (col: number, row: number) => ({
-  coord: { col, row },
-  content: { type: 'audio' as const },
-})
+const audio = (col: number, row: number) => ({ coord: { col, row }, audio: true })
 
 // Two separate audio blobs: an L-shape of 3 (top-left) and a single cell (bottom-right).
 const config: GridConfig = {

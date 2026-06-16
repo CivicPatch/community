@@ -1,22 +1,16 @@
-// Extensible cell-content renderer. v1 implements `audio`; register more types
-// (text/link/meet) later without touching the grid or other types.
+// Foreground glyph for a cell, composed from its fields. Background (color/image)
+// is applied as an inline style by the component; this is just what's drawn on top.
+// Priority: an explicit char wins; an image speaks for itself; otherwise a role icon.
 
 import { html } from 'lit'
 import type { TemplateResult } from 'lit'
 import type { Cell } from '../core/types'
 
-type CellRenderer = (cell: Cell) => TemplateResult
-
-const renderers: Record<string, CellRenderer> = {
-  audio: () => html`<span class="cg-cell-icon" aria-hidden="true">🔊</span>`,
-}
-
-export const registerCellRenderer = (type: string, fn: CellRenderer): void => {
-  renderers[type] = fn
-}
-
-export const renderCellContent = (cell: Cell | undefined): TemplateResult | string => {
-  if (!cell?.content) return ''
-  const r = renderers[cell.content.type]
-  return r ? r(cell) : ''
+export const renderCellGlyph = (cell: Cell | undefined): TemplateResult | string => {
+  if (!cell) return ''
+  if (cell.char) return html`<span class="cg-cell-char">${cell.char}</span>`
+  if (cell.image) return '' // the image is the visual
+  if (cell.link) return html`<span class="cg-cell-icon" aria-hidden="true">${cell.link.label ?? '🔗'}</span>`
+  if (cell.audio) return html`<span class="cg-cell-icon" aria-hidden="true">🔊</span>`
+  return ''
 }

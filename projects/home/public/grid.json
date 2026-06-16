@@ -4,22 +4,24 @@
   "spawn": { "col": 0, "row": 0 },
   "maxRoomCells": 6,
   "cells": [
-    { "coord": { "col": 2, "row": 2 }, "content": { "type": "audio" } },
-    { "coord": { "col": 3, "row": 2 }, "content": { "type": "audio" } },
-    { "coord": { "col": 2, "row": 3 }, "content": { "type": "audio" } },
-    { "coord": { "col": 3, "row": 3 }, "content": { "type": "audio" } },
+    { "coord": { "col": 2, "row": 2 }, "audio": true },
+    { "coord": { "col": 3, "row": 2 }, "audio": true },
+    { "coord": { "col": 2, "row": 3 }, "audio": true },
+    { "coord": { "col": 3, "row": 3 }, "audio": true, "char": "🎤" },
 
-    { "coord": { "col": 8, "row": 5 }, "content": { "type": "audio" } },
-    { "coord": { "col": 9, "row": 5 }, "content": { "type": "audio" } },
-    { "coord": { "col": 8, "row": 6 }, "content": { "type": "audio" } },
+    { "coord": { "col": 8, "row": 5 }, "audio": true },
+    { "coord": { "col": 9, "row": 5 }, "audio": true },
+    { "coord": { "col": 8, "row": 6 }, "audio": true },
 
     { "coord": { "col": 6, "row": 1 }, "walkable": false },
     { "coord": { "col": 6, "row": 2 }, "walkable": false },
     { "coord": { "col": 6, "row": 3 }, "walkable": false },
     { "coord": { "col": 6, "row": 4 }, "walkable": false },
 
-    { "coord": { "col": 0, "row": 7 }, "style": { "color": "#3a5a3a" } },
-    { "coord": { "col": 11, "row": 0 }, "style": { "color": "#5a3a3a" } },
-    { "coord": { "col": 5, "row": 5 }, "style": { "color": "#3a3a5a" } }
+    { "coord": { "col": 0, "row": 7 }, "color": "#3a5a3a" },
+    { "coord": { "col": 11, "row": 0 }, "color": "#5a3a3a" },
+    { "coord": { "col": 5, "row": 5 }, "color": "#3a3a5a", "char": "S" },
+
+    { "coord": { "col": 10, "row": 2 }, "link": { "url": "https://civictech.guide", "label": "?", "summary": "Civic Tech Field Guide — a directory of civic tech projects." } }
   ]
 }
