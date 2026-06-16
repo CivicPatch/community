@@ -54,3 +54,5 @@
   feeds:
     - type: "discussion_event"
       url: https://mastodon.social/@pahlkadot.rss
+    - type: "discussion_event"
+      url: https://bsky.app/profile/did:plc:wwtm5peukhmsjizz3vjkkuxb/rss
