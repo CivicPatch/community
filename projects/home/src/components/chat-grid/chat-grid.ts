@@ -11,6 +11,7 @@ import { buildRooms, peersInRoom, roomOf } from './core/rooms'
 import { applyDelta, canEnter, keyToDelta } from './core/movement'
 import { findPath } from './core/pathfind'
 import { validateGrid } from './core/validate'
+import { readableInk } from './core/color'
 import { renderCellGlyph } from './render/cell'
 import { createBackend } from './shell/backend'
 import type { RealtimeBackend, VoiceState } from './shell/realtime'
@@ -327,9 +328,13 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
       if (link) classes.push('cg-link')
       if (hasDesc) classes.push('cg-has-desc')
       if (wall) classes.push('cg-wall')
-      // compose the visual background: colour fill + image, both optional
+      // compose the visual background: colour fill + image, both optional. A
+      // user-set colour doesn't track the theme, so derive a legible glyph colour
+      // from it (else fall back to the theme text colour).
+      const ink = cell?.color ? readableInk(cell.color) : undefined
       const bg = [
         cell?.color ? `background-color:${cell.color}` : '',
+        ink ? `color:${ink}` : '',
         cell?.image ? `background-image:url(${cell.image});background-size:cover;background-position:center` : '',
       ]
         .filter(Boolean)
@@ -337,8 +342,14 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
       // hover/focus preview popover (title + body), pure CSS — no JS state. The
       // FULL description (with links) shows in the side panel when you STAND here.
       const desc = cell?.description
+      // edge-aware popover placement (we know col/row, so no measuring): flip below
+      // on the top row, and align to the side near the left/right edges
+      const popCls = ['cg-pop']
+      if (row === 0) popCls.push('cg-pop-below')
+      if (col < 3) popCls.push('cg-pop-left')
+      else if (col >= grid.columns - 3) popCls.push('cg-pop-right')
       const pop = hasDesc
-        ? html`<span class="cg-pop" aria-hidden="true">
+        ? html`<span class=${popCls.join(' ')} aria-hidden="true">
             ${desc?.title ? html`<span class="cg-pop-title">${desc.title}</span>` : ''}
             ${desc?.body ? html`<span class="cg-pop-body">${desc.body}</span>` : ''}
           </span>`
@@ -359,6 +370,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
               class=${classes.join(' ')}
               style=${bg}
               ?disabled=${wall}
+              tabindex="-1"
               title=${`${col},${row}`}
               @click=${() => onCellClick(coord)}
             >
@@ -400,11 +412,13 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
         <div
           class="cg-grid"
           tabindex="0"
+          role="application"
+          aria-label="Movement grid. Use WASD or arrow keys to move; click a tile to travel."
           style="--cols:${grid.columns};--rows:${grid.rows}"
           @keydown=${onKeyDown}
         >
           <div class="cg-cells">${cells}</div>
-          <div class="cg-tokens">
+          <div class="cg-tokens" aria-hidden="true">
             ${others.map((p) =>
               token(
                 p.coord,
@@ -420,6 +434,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
               : ''}
           </div>
         </div>
+        <div class="cg-side">
         <aside class="cg-panel" aria-live="polite" aria-label="Tile details">
           ${description
             ? html`
@@ -439,8 +454,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
               `
             : html`<p class="cg-panel-empty">Step onto a tile with details to see them here.</p>`}
         </aside>
-      </div>
-      <div class="cg-controls">
+        <div class="cg-controls">
         ${gate === 'on'
           ? html`<button class="cg-btn" @click=${toggleMute}>
               ${muted ? '🔇 Unmute' : '🎙️ Mute'}
@@ -520,6 +534,8 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
                 </ul>`}
           </section>`
         : ''}
+        </div>
+      </div>
       <!-- hidden audio sinks; keyed by peer id so playback isn't interrupted on re-render -->
       <div class="cg-audio-sinks" hidden>
         ${repeat(
@@ -559,11 +575,31 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
 const STYLE = html`
   <style>
     :host {
+      display: block; /* fill the container width so the container query has a real size */
       container-type: inline-size; /* makes 100cqw = this component's width */
+      color-scheme: light dark;
+      /* Theme: consume the site tokens from index.css (CSS vars inherit through the
+         shadow boundary), with dark fallbacks for the standalone demo. color-mix
+         derives surface shades that track light/dark automatically. */
+      --cg-text: var(--ink, #e8e8e8);
+      --cg-dim: color-mix(in srgb, var(--bg, #16171d), var(--ink, #ffffff) 72%);
+      --cg-accent: var(--accent, #5aa0ff);
+      --cg-enabled: #22c55e; /* "mic on" green — vivid, crisp in both light and dark */
+      --cg-surface: color-mix(in srgb, var(--bg, #16171d), var(--ink, #ffffff) 7%);
+      --cg-cell: color-mix(in srgb, var(--bg, #16171d), var(--ink, #ffffff) 13%);
+      --cg-cell-hover: color-mix(in srgb, var(--bg, #16171d), var(--ink, #ffffff) 24%);
+      --cg-wall: color-mix(in srgb, var(--bg, #16171d), var(--ink, #ffffff) 44%);
+      --cg-line: color-mix(in srgb, var(--bg, #16171d), var(--ink, #ffffff) 18%);
+      --cg-border: color-mix(in srgb, var(--bg, #16171d), var(--ink, #ffffff) 32%);
+      --cg-pop: color-mix(in srgb, var(--bg, #16171d), var(--ink, #ffffff) 5%);
+      --cg-audio: color-mix(in srgb, var(--bg, #16171d), var(--color-3, #88a6ff) 18%);
+      --cg-audio-active: color-mix(in srgb, var(--bg, #16171d), var(--color-3, #88a6ff) 40%);
+      --cg-link-bg: color-mix(in srgb, var(--bg, #16171d), var(--cg-accent) 14%);
+      --cg-link-bg-hover: color-mix(in srgb, var(--bg, #16171d), var(--cg-accent) 26%);
     }
     .cg-wrap {
       font-family: system-ui, sans-serif;
-      color: #ddd;
+      color: var(--cg-text);
     }
     /* grid + detail panel: side by side when there's room, panel wraps below when not */
     .cg-stage {
@@ -572,12 +608,22 @@ const STYLE = html`
       align-items: flex-start;
       gap: 12px;
     }
+    .cg-side {
+      flex: 1 1 220px;
+      min-width: 200px;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    /* keep the roster directly under the description; push controls to the bottom */
+    .cg-side .cg-controls {
+      order: 1;
+      margin-top: 0;
+    }
     .cg-panel {
-      flex: 1 1 180px;
-      min-width: 180px;
-      max-width: 320px;
       padding: 10px 12px;
-      background: #1a1a1a;
+      background: var(--cg-surface);
       border-radius: 6px;
       font-size: 13px;
     }
@@ -587,7 +633,7 @@ const STYLE = html`
     }
     .cg-panel-body {
       margin: 0 0 8px;
-      color: #ccc;
+      color: var(--cg-text);
     }
     .cg-panel-links {
       list-style: none;
@@ -598,11 +644,11 @@ const STYLE = html`
       gap: 6px;
     }
     .cg-panel-links a {
-      color: #9cf;
+      color: var(--cg-accent);
     }
     .cg-panel-empty {
       margin: 0;
-      color: #777;
+      color: var(--cg-dim);
     }
     .cg-grid {
       /* cells shrink to fit the component width on small screens, capped at 40px.
@@ -613,12 +659,13 @@ const STYLE = html`
       display: inline-block;
       max-width: 100%;
       padding: 2px;
-      background: #1a1a1a;
+      background: var(--cg-surface);
+      border: 1px solid var(--cg-line);
       border-radius: 6px;
       outline: none;
     }
     .cg-grid:focus-visible {
-      box-shadow: 0 0 0 2px #6cf;
+      box-shadow: 0 0 0 2px var(--cg-accent);
     }
     .cg-cells {
       display: grid;
@@ -632,9 +679,9 @@ const STYLE = html`
       margin: 0;
       padding: 0;
       border: none;
-      background: #2b2b2b;
-      box-shadow: inset 0 0 0 1px #1a1a1a;
-      color: #ddd;
+      background: var(--cg-cell);
+      box-shadow: inset 0 0 0 1px var(--cg-line);
+      color: var(--cg-text);
       text-decoration: none; /* the anchor (link tiles) shouldn't be underlined */
       font-size: calc(var(--cell) * 0.45); /* content (e.g. 🔊) scales with the cell */
       cursor: pointer;
@@ -643,24 +690,36 @@ const STYLE = html`
       justify-content: center;
     }
     .cg-cell:hover:not(:disabled) {
-      background: #3a3a3a;
+      background: var(--cg-cell-hover);
     }
     .cg-cell.cg-audio {
-      background: #24323a;
+      background: var(--cg-audio);
     }
     .cg-cell.cg-audio.cg-active-room {
-      background: #2f5d6b;
-      box-shadow: inset 0 0 0 2px #6cf;
+      background: var(--cg-audio-active);
+      box-shadow: inset 0 0 0 2px var(--cg-accent);
     }
     .cg-cell.cg-wall {
-      background: #111;
+      background: var(--cg-wall);
       cursor: default;
     }
+    /* link kiosks: make them obviously clickable — tint, ring, and a ↗ corner mark */
     .cg-cell.cg-link {
-      color: #9cf;
+      color: var(--cg-text);
+      background: var(--cg-link-bg);
+      box-shadow: inset 0 0 0 2px var(--cg-accent);
     }
     .cg-cell.cg-link:hover {
-      background: #2a3a4a;
+      background: var(--cg-link-bg-hover);
+    }
+    .cg-cell.cg-link::after {
+      content: '↗';
+      position: absolute;
+      top: 0;
+      right: 2px;
+      font-size: 55%;
+      opacity: 0.85;
+      color: var(--cg-text);
     }
     .cg-cell-char {
       font-weight: 600;
@@ -668,7 +727,7 @@ const STYLE = html`
     /* describable cells: hover/focus lifts the tile and pops a preview (title + body) */
     .cg-cell.cg-has-desc:hover,
     .cg-cell.cg-has-desc:focus-visible {
-      box-shadow: inset 0 0 0 2px #6cf;
+      box-shadow: inset 0 0 0 2px var(--cg-accent);
       z-index: 40; /* lift this tile + its popover above neighbours */
     }
     .cg-pop {
@@ -682,9 +741,10 @@ const STYLE = html`
       max-width: 200px;
       padding: 6px 8px;
       border-radius: 6px;
-      background: #0f0f0f;
-      box-shadow: 0 2px 10px #000a;
-      color: #ddd;
+      background: var(--cg-pop);
+      border: 1px solid var(--cg-line);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+      color: var(--cg-text);
       font-size: 12px;
       font-weight: 400;
       text-align: left;
@@ -702,7 +762,28 @@ const STYLE = html`
     .cg-pop-body {
       display: block;
       margin-top: 2px;
-      color: #bbb;
+      color: var(--cg-dim);
+    }
+    /* edge-aware placement so the popover never spills off the grid */
+    .cg-pop.cg-pop-below {
+      bottom: auto;
+      top: 100%;
+      margin-bottom: 0;
+      margin-top: 6px;
+    }
+    .cg-pop.cg-pop-left {
+      left: 0;
+      transform: none;
+    }
+    .cg-pop.cg-pop-right {
+      left: auto;
+      right: 0;
+      transform: none;
+    }
+    .cg-cell:focus-visible {
+      outline: 2px solid var(--cg-accent);
+      outline-offset: -2px;
+      z-index: 40;
     }
     .cg-tokens {
       position: absolute;
@@ -729,15 +810,16 @@ const STYLE = html`
       box-shadow: 0 0 0 2px #0008;
     }
     .cg-token.cg-me .cg-token-dot {
-      background: #6cf;
+      background: var(--cg-accent);
     }
     .cg-token-name {
       position: absolute;
       top: -13px;
       font-size: 10px;
-      color: #fff;
+      color: var(--cg-text);
       white-space: nowrap;
-      text-shadow: 0 1px 2px #000;
+      /* outline against whatever tiles are behind it, in either theme */
+      text-shadow: 0 0 3px var(--bg, #000), 0 1px 2px var(--bg, #000);
     }
     .cg-status {
       margin-top: 8px;
@@ -761,10 +843,9 @@ const STYLE = html`
     }
     .cg-badge[data-status='offline'] {
       background: #e55;
-      color: #fff;
     }
     .cg-hint {
-      color: #888;
+      color: var(--cg-dim);
       font-size: 12px;
       margin-top: 2px;
     }
@@ -779,17 +860,17 @@ const STYLE = html`
       font-size: 13px;
       min-height: 40px; /* comfortable touch target */
       padding: 6px 12px;
-      border: 1px solid #444;
+      border: 1px solid var(--cg-border);
       border-radius: 6px;
-      background: #2b2b2b;
-      color: #ddd;
+      background: var(--cg-cell);
+      color: var(--cg-text);
       cursor: pointer;
     }
     .cg-btn:hover:not(:disabled) {
-      background: #3a3a3a;
+      background: var(--cg-cell-hover);
     }
     .cg-btn:focus-visible {
-      outline: 2px solid #6cf;
+      outline: 2px solid var(--cg-accent);
       outline-offset: 2px;
     }
     .cg-btn:disabled {
@@ -797,11 +878,11 @@ const STYLE = html`
       cursor: default;
     }
     .cg-controls-hint {
-      color: #888;
+      color: var(--cg-dim);
       font-size: 12px;
     }
     .cg-token.cg-enabled .cg-token-dot {
-      box-shadow: 0 0 0 3px #4ade4a, 0 0 9px 3px rgba(74, 222, 74, 0.75);
+      box-shadow: 0 0 0 2px var(--cg-enabled);
     }
     .cg-token-mute {
       position: absolute;
@@ -813,7 +894,9 @@ const STYLE = html`
     }
     /* speaking ring (VAD): only for people in YOUR blob — the "light" indicator */
     .cg-token.cg-speaking .cg-token-dot {
-      box-shadow: 0 0 0 3px #fff, 0 0 12px 3px rgba(255, 255, 255, 0.8);
+      box-shadow:
+        0 0 0 3px var(--cg-enabled),
+        0 0 14px 5px color-mix(in srgb, var(--cg-enabled), transparent 25%);
     }
     /* wiggle (audio-reactive, amplitude = --shake): grid-wide, anyone talking */
     .cg-token.cg-wiggling .cg-token-dot {
@@ -829,17 +912,20 @@ const STYLE = html`
       }
     }
     @media (prefers-reduced-motion: reduce) {
+      .cg-token {
+        transition: none;
+      }
       .cg-token.cg-wiggling .cg-token-dot {
         animation: none;
       } /* keep the ring, drop the motion */
     }
     .cg-roster {
-      margin-top: 8px;
+      margin-top: 0;
     }
     .cg-roster-empty {
       margin: 0;
       font-size: 12px;
-      color: #888;
+      color: var(--cg-dim);
     }
     .cg-roster-list {
       list-style: none;
@@ -847,18 +933,23 @@ const STYLE = html`
       padding: 0;
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      max-width: 320px;
+      gap: 2px;
     }
     .cg-roster-item {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 8px;
-      min-height: 44px;
+      gap: 6px;
+      min-height: 32px;
+    }
+    /* compact buttons inside the roster (the grid/keyboard are the primary targets) */
+    .cg-roster .cg-btn {
+      min-height: 30px;
+      padding: 3px 8px;
+      font-size: 12px;
     }
     .cg-roster-item.cg-blocked .cg-roster-name {
-      color: #777;
+      color: var(--cg-dim);
       text-decoration: line-through;
     }
     .cg-roster-status {
@@ -866,10 +957,10 @@ const STYLE = html`
       width: 9px;
       height: 9px;
       border-radius: 50%;
-      background: #666;
+      background: var(--cg-dim);
     }
     .cg-roster-status.cg-on {
-      background: #5c6;
+      background: var(--cg-enabled);
     }
     .cg-roster-name {
       flex: 1 1 auto;
@@ -880,7 +971,7 @@ const STYLE = html`
     }
     .cg-roster-state {
       flex: 0 0 auto;
-      color: #888;
+      color: var(--cg-dim);
       font-size: 11px;
     }
     .cg-roster-btn {
@@ -912,7 +1003,7 @@ const STYLE = html`
     }
     .cg-errors {
       margin-top: 8px;
-      color: #f88;
+      color: color-mix(in srgb, var(--cg-text), #ff3b30 65%);
       font-size: 13px;
     }
   </style>
