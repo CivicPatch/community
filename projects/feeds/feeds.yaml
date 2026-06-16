@@ -27,7 +27,7 @@
 - name: civicmirror
   type: project
   display_name: CivicMirror
-  url: https://civicmirror.welshrd.com
+  url: https://civicmirror.app 
   meta:
     - label: Make blog post (admin only)
       content: "<a href='https://github.com/CivicPatch/community/discussions/new?category=civicmirror' target='blank'>New Discussion</a>"
