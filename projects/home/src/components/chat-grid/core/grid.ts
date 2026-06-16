@@ -19,10 +19,17 @@ export const cellAt = (grid: Grid, coord: Coord): Cell | undefined =>
 export const inBounds = (grid: Grid, c: Coord): boolean =>
   c.col >= 0 && c.row >= 0 && c.col < grid.columns && c.row < grid.rows
 
-/** Walkable = in bounds and not explicitly marked `walkable: false`. */
+/**
+ * Walkable = in bounds, not blocked. An explicit `walkable` always wins; otherwise
+ * link "kiosks" block by default (you click them, you don't stand on them); every
+ * other cell is walkable.
+ */
 export const isWalkable = (grid: Grid, c: Coord): boolean => {
   if (!inBounds(grid, c)) return false
-  return cellAt(grid, c)?.walkable !== false
+  const cell = cellAt(grid, c)
+  if (!cell) return true
+  if (cell.walkable !== undefined) return cell.walkable
+  return !cell.link
 }
 
 export const isAudio = (grid: Grid, c: Coord): boolean => cellAt(grid, c)?.audio === true

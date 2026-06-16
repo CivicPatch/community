@@ -308,6 +308,8 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   const roomPeerPlayers =
     myRoom === null ? [] : others.filter((p) => roomOf(rooms, p.coord) === myRoom)
   const connectedCount = roomPeerPlayers.filter((p) => peerStates[p.id] === 'connected').length
+  // side panel = the description of the tile you're STANDING on (hover uses the popover)
+  const description = myCoord ? cellAt(grid, myCoord)?.description : undefined
 
   const cells = []
   for (let row = 0; row < grid.rows; row++) {
@@ -317,11 +319,13 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
       const isAudioCell = cell?.audio === true
       const link = cell?.link ?? null
       const wall = cell?.walkable === false
+      const hasDesc = !!cell?.description
       const activeRoom = isAudioCell && myRoom !== null && roomOf(rooms, coord) === myRoom
       const classes = ['cg-cell']
       if (isAudioCell) classes.push('cg-audio')
       if (activeRoom) classes.push('cg-active-room')
       if (link) classes.push('cg-link')
+      if (hasDesc) classes.push('cg-has-desc')
       if (wall) classes.push('cg-wall')
       // compose the visual background: colour fill + image, both optional
       const bg = [
@@ -330,28 +334,27 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
       ]
         .filter(Boolean)
         .join(';')
+      // hover/focus preview popover (title + body), pure CSS — no JS state. The
+      // FULL description (with links) shows in the side panel when you STAND here.
+      const desc = cell?.description
+      const pop = hasDesc
+        ? html`<span class="cg-pop" aria-hidden="true">
+            ${desc?.title ? html`<span class="cg-pop-title">${desc.title}</span>` : ''}
+            ${desc?.body ? html`<span class="cg-pop-body">${desc.body}</span>` : ''}
+          </span>`
+        : ''
       cells.push(
         link
-          ? // a real anchor: native new-tab, middle-click, screen-reader "link", no popup-blocker.
-            // hover/focus pops a tooltip with the url + optional summary (CSS-driven).
+          ? // a real anchor: native new-tab, middle-click, screen-reader "link", no popup-blocker
             html`<a
               class=${classes.join(' ')}
               style=${bg}
               href=${link.url}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label=${`Open link: ${link.label ?? link.url}${
-                link.summary ? `. ${link.summary}` : ''
-              }`}
-            >
-              ${renderCellGlyph(cell)}
-              <span class="cg-link-pop" aria-hidden="true">
-                <span class="cg-link-pop-url">${link.url}</span>
-                ${link.summary
-                  ? html`<span class="cg-link-pop-summary">${link.summary}</span>`
-                  : ''}
-              </span>
-            </a>`
+              aria-label=${`Open link: ${link.label ?? link.url}`}
+              >${renderCellGlyph(cell)}${pop}</a
+            >`
           : html`<button
               class=${classes.join(' ')}
               style=${bg}
@@ -359,7 +362,7 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
               title=${`${col},${row}`}
               @click=${() => onCellClick(coord)}
             >
-              ${renderCellGlyph(cell)}
+              ${renderCellGlyph(cell)}${pop}
             </button>`,
       )
     }
@@ -393,28 +396,49 @@ const ChatGrid = ({ 'config-url': configUrl = 'grid.json' }: ChatGridProps) => {
   return html`
     ${STYLE}
     <div class="cg-wrap">
-      <div
-        class="cg-grid"
-        tabindex="0"
-        style="--cols:${grid.columns};--rows:${grid.rows}"
-        @keydown=${onKeyDown}
-      >
-        <div class="cg-cells">${cells}</div>
-        <div class="cg-tokens">
-          ${others.map((p) =>
-            token(
-              p.coord,
-              p.name,
-              false,
-              p.audioEnabled ?? false,
-              myRoom !== null && roomOf(rooms, p.coord) === myRoom,
-              voices[p.id],
-            ),
-          )}
-          ${myCoord
-            ? token(myCoord, meName.current, true, gate === 'on', myRoom !== null, voices[meId.current])
-            : ''}
+      <div class="cg-stage">
+        <div
+          class="cg-grid"
+          tabindex="0"
+          style="--cols:${grid.columns};--rows:${grid.rows}"
+          @keydown=${onKeyDown}
+        >
+          <div class="cg-cells">${cells}</div>
+          <div class="cg-tokens">
+            ${others.map((p) =>
+              token(
+                p.coord,
+                p.name,
+                false,
+                p.audioEnabled ?? false,
+                myRoom !== null && roomOf(rooms, p.coord) === myRoom,
+                voices[p.id],
+              ),
+            )}
+            ${myCoord
+              ? token(myCoord, meName.current, true, gate === 'on', myRoom !== null, voices[meId.current])
+              : ''}
+          </div>
         </div>
+        <aside class="cg-panel" aria-live="polite" aria-label="Tile details">
+          ${description
+            ? html`
+                ${description.title
+                  ? html`<h3 class="cg-panel-title">${description.title}</h3>`
+                  : ''}
+                ${description.body ? html`<p class="cg-panel-body">${description.body}</p>` : ''}
+                ${description.links?.length
+                  ? html`<ul class="cg-panel-links">
+                      ${description.links.map(
+                        (l) => html`<li>
+                          <a href=${l.url} target="_blank" rel="noopener noreferrer">${l.label}</a>
+                        </li>`,
+                      )}
+                    </ul>`
+                  : ''}
+              `
+            : html`<p class="cg-panel-empty">Step onto a tile with details to see them here.</p>`}
+        </aside>
       </div>
       <div class="cg-controls">
         ${gate === 'on'
@@ -541,6 +565,45 @@ const STYLE = html`
       font-family: system-ui, sans-serif;
       color: #ddd;
     }
+    /* grid + detail panel: side by side when there's room, panel wraps below when not */
+    .cg-stage {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .cg-panel {
+      flex: 1 1 180px;
+      min-width: 180px;
+      max-width: 320px;
+      padding: 10px 12px;
+      background: #1a1a1a;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .cg-panel-title {
+      margin: 0 0 6px;
+      font-size: 15px;
+    }
+    .cg-panel-body {
+      margin: 0 0 8px;
+      color: #ccc;
+    }
+    .cg-panel-links {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .cg-panel-links a {
+      color: #9cf;
+    }
+    .cg-panel-empty {
+      margin: 0;
+      color: #777;
+    }
     .cg-grid {
       /* cells shrink to fit the component width on small screens, capped at 40px.
          tokens position via --cell too, so the avatar overlay scales in lockstep —
@@ -563,6 +626,7 @@ const STYLE = html`
       grid-template-rows: repeat(var(--rows), var(--cell));
     }
     .cg-cell {
+      position: relative; /* anchor for the hover popover */
       width: var(--cell);
       height: var(--cell);
       margin: 0;
@@ -594,7 +658,6 @@ const STYLE = html`
     }
     .cg-cell.cg-link {
       color: #9cf;
-      position: relative; /* anchor for the hover popover */
     }
     .cg-cell.cg-link:hover {
       background: #2a3a4a;
@@ -602,38 +665,43 @@ const STYLE = html`
     .cg-cell-char {
       font-weight: 600;
     }
-    /* link hover/focus popover: the actual url + optional summary */
-    .cg-link-pop {
+    /* describable cells: hover/focus lifts the tile and pops a preview (title + body) */
+    .cg-cell.cg-has-desc:hover,
+    .cg-cell.cg-has-desc:focus-visible {
+      box-shadow: inset 0 0 0 2px #6cf;
+      z-index: 40; /* lift this tile + its popover above neighbours */
+    }
+    .cg-pop {
       position: absolute;
       bottom: 100%;
       left: 50%;
       transform: translateX(-50%);
       margin-bottom: 6px;
-      z-index: 30;
       display: none;
       width: max-content;
-      max-width: 220px;
+      max-width: 200px;
       padding: 6px 8px;
       border-radius: 6px;
       background: #0f0f0f;
       box-shadow: 0 2px 10px #000a;
+      color: #ddd;
       font-size: 12px;
       font-weight: 400;
       text-align: left;
       white-space: normal;
+      pointer-events: none;
     }
-    .cg-cell.cg-link:hover .cg-link-pop,
-    .cg-cell.cg-link:focus-visible .cg-link-pop {
+    .cg-cell.cg-has-desc:hover .cg-pop,
+    .cg-cell.cg-has-desc:focus-visible .cg-pop {
       display: block;
     }
-    .cg-link-pop-url {
+    .cg-pop-title {
       display: block;
-      color: #9cf;
-      word-break: break-all;
+      font-weight: 600;
     }
-    .cg-link-pop-summary {
+    .cg-pop-body {
       display: block;
-      margin-top: 4px;
+      margin-top: 2px;
       color: #bbb;
     }
     .cg-tokens {

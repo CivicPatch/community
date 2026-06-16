@@ -24,7 +24,17 @@ export interface Cell {
   /** proximity-voice zone */
   audio?: boolean
   /** clickable kiosk — rendered as a real <a>, opens in a new tab */
-  link?: { url: string; label?: string; summary?: string }
+  link?: { url: string; label?: string }
+  /**
+   * Shown in the side panel when you STAND on this cell. Composable on any cell.
+   * A "Google Meet tile" is just an icon + a description whose links include a
+   * "Join" url — no special meet behavior needed.
+   */
+  description?: {
+    title?: string
+    body?: string
+    links?: { url: string; label: string }[]
+  }
 }
 
 export interface GridConfig {
