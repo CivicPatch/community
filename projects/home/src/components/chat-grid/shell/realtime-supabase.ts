@@ -18,8 +18,10 @@ import { createRoster } from './roster'
 
 const REJOIN_DELAY_MS = 1500
 const PRESENCE_GRACE_MS = 6000
+const REANNOUNCE_DEBOUNCE_MS = 250 // coalesce a burst of joins into one re-announce
 
 type MovePayload = { id: PlayerId; coord: Coord }
+type TravelPayload = { id: PlayerId; path: Coord[] }
 type SignalPayload = { to: PlayerId; from: PlayerId; signal: Signal }
 type VoicePayload = { from: PlayerId; state: VoiceState }
 
@@ -32,6 +34,7 @@ export const createSupabaseBackend = (
   let channel: RealtimeChannel | null = null
   let me: Player | null = null
   let leaving = false // set only by leave(); distinguishes intentional close
+  let reannounce: ReturnType<typeof setTimeout> | null = null
 
   const players = createEmitter<Player[]>()
   const signals = createEmitter<{ from: PlayerId; signal: Signal }>()
@@ -60,8 +63,8 @@ export const createSupabaseBackend = (
   // fire-and-forget; positions/signals are idempotent or naturally re-sent, so a
   // transient send failure must never throw into the caller
   const send = (
-    event: 'move' | 'signal' | 'voice',
-    payload: MovePayload | SignalPayload | VoicePayload,
+    event: 'move' | 'travel' | 'signal' | 'voice',
+    payload: MovePayload | TravelPayload | SignalPayload | VoicePayload,
   ) => {
     if (!channel) return
     try {
@@ -71,6 +74,17 @@ export const createSupabaseBackend = (
     }
   }
   const broadcastMove = () => me && send('move', { id: me.id, coord: me.coord })
+
+  // A join makes EVERY existing client re-announce its position; a burst of joins
+  // would fire one redundant re-announce each. Coalesce them: position is idempotent,
+  // so one send after the burst settles is enough.
+  const scheduleReannounce = () => {
+    if (reannounce) return
+    reannounce = setTimeout(() => {
+      reannounce = null
+      broadcastMove()
+    }, REANNOUNCE_DEBOUNCE_MS)
+  }
 
   // Supabase auto-retries CHANNEL_ERROR/TIMED_OUT, but a CLOSED channel does not
   // rejoin itself — so we rebuild it on an unexpected close.
@@ -84,12 +98,16 @@ export const createSupabaseBackend = (
     ch.on('presence', { event: 'sync' }, () => roster.applyPresence(presentOthers()))
       .on('presence', { event: 'join' }, () => {
         roster.applyPresence(presentOthers())
-        broadcastMove() // a newcomer doesn't know where we've moved to — re-announce
+        scheduleReannounce() // a newcomer doesn't know where we've moved to — re-announce (debounced)
       })
       .on('presence', { event: 'leave' }, () => roster.applyPresence(presentOthers()))
       .on('broadcast', { event: 'move' }, ({ payload }) => {
         const { id, coord } = payload as MovePayload
         if (id !== me?.id) roster.updateCoord(id, coord)
+      })
+      .on('broadcast', { event: 'travel' }, ({ payload }) => {
+        const { id, path } = payload as TravelPayload
+        if (id !== me?.id) roster.travel(id, path)
       })
       .on('broadcast', { event: 'signal' }, ({ payload }) => {
         const { to, from, signal } = payload as SignalPayload
@@ -135,6 +153,10 @@ export const createSupabaseBackend = (
       me.coord = coord
       broadcastMove()
     },
+    travelTo(path) {
+      if (!me || !path.length) return
+      send('travel', { id: me.id, path }) // whole trip in one message; we animate locally too
+    },
     onPlayers: players.on,
     onStatus(cb) {
       cb(status) // fire immediately with the current value
@@ -161,6 +183,8 @@ export const createSupabaseBackend = (
     },
     leave() {
       leaving = true
+      if (reannounce) clearTimeout(reannounce)
+      reannounce = null
       roster.dispose()
       if (!channel) return
       channel.untrack()

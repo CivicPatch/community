@@ -24,8 +24,12 @@ export interface VoiceState {
 export interface RealtimeBackend {
   /** Announce self and begin syncing presence. */
   join(me: Player): void
-  /** Broadcast my new position. */
+  /** Broadcast my new position (a single discrete move: keyboard step, settle, hop). */
   updatePosition(coord: Coord): void
+  /** Announce a click-to-travel as one message: the ordered cells I'm about to walk
+   *  (last = destination). Receivers replay it locally, so a whole trip costs one
+   *  broadcast instead of one per cell. */
+  travelTo(path: Coord[]): void
   /** Subscribe to the set of OTHER players. Returns an unsubscribe fn. */
   onPlayers(cb: (others: Player[]) => void): () => void
   /** Subscribe to connection status. Fires immediately with the current value. */

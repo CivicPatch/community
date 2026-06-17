@@ -501,17 +501,22 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
         >
           <div class="cg-cells">${cells}</div>
           <div class="cg-tokens" aria-hidden="true">
-            ${others.map((p) =>
-              token(
-                p.coord,
-                p.name,
-                p.avatar,
-                false,
-                p.audioEnabled ?? false,
-                myRoom !== null && roomOf(rooms, p.coord) === myRoom,
-                voices[p.id],
-                p.status && bubbleVisible(p.statusAt, nowMs) ? p.status : undefined,
-              ),
+            ${repeat(
+              others,
+              (p) => p.id, // key by player id so lit reuses each avatar's node — the
+              // CSS transform transition then glides on a move instead of an avatar
+              // inheriting a neighbour's node (and position) when the array reorders
+              (p) =>
+                token(
+                  p.coord,
+                  p.name,
+                  p.avatar,
+                  false,
+                  p.audioEnabled ?? false,
+                  myRoom !== null && roomOf(rooms, p.coord) === myRoom,
+                  voices[p.id],
+                  p.status && bubbleVisible(p.statusAt, nowMs) ? p.status : undefined,
+                ),
             )}
             ${myCoord
               ? token(
