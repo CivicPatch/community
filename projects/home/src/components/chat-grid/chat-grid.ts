@@ -146,9 +146,24 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
   // unique per tab (sessionStorage isn't shared across tabs) so multi-tab works.
   const meId = useRef<string>('')
   if (!meId.current) {
-    const stored = sessionStorage.getItem('chat-grid-id')
+    // Best-effort per-tab id: a storage failure (private mode, blocked cookies,
+    // privacy browsers like Firefox Focus) must NOT throw and blank the whole
+    // grid — fall back to an ephemeral id. Mirrors the guarded storage in
+    // shell/identity.ts, shell/draft.ts, shell/sound-prefs.ts.
+    let stored: string | null = null
+    try {
+      stored = sessionStorage.getItem('chat-grid-id')
+    } catch {
+      /* storage blocked — use an ephemeral id this session */
+    }
     meId.current = stored ?? crypto.randomUUID()
-    if (!stored) sessionStorage.setItem('chat-grid-id', meId.current)
+    if (!stored) {
+      try {
+        sessionStorage.setItem('chat-grid-id', meId.current)
+      } catch {
+        /* ignore — id stays ephemeral */
+      }
+    }
   }
   const meName = useRef<string>('')
   if (!meName.current) meName.current = loadIdentity()?.name || `Guest ${meId.current.slice(0, 4)}`
