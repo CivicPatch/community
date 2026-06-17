@@ -40,6 +40,7 @@ import { gateTransition, initialGate } from './core/fsm/audio-gate'
 import type { AudioGateEvent, AudioGateState } from './core/fsm/audio-gate'
 
 const STEP_MS = 140 // pace of click-to-travel
+const STATUS_PREVIEW = 80 // roster status chars shown inline before a "more" badge → modal
 
 const occupiedSet = (players: Player[]): Set<string> => {
   const s = new Set<string>()
@@ -80,6 +81,7 @@ type Overlay =
   | { kind: 'cell'; cell: Cell }
   | { kind: 'json' }
   | { kind: 'settings' }
+  | { kind: 'status'; name: string; text: string }
 
 // "5 minutes ago" style label for the draft's last-edited time
 const formatAgo = (ms: number): string => {
@@ -736,6 +738,22 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
   // One roster row. `full` rows (your audio blob) are real peers — connection dot,
   // connecting state, and the mute/block menu. Light rows (rest of the grid) are
   // presence-only: avatar, name, status.
+  // Roster status: show up to STATUS_PREVIEW chars inline (wrapped); if the full
+  // status is longer, append a "more" badge that opens it in a modal.
+  const statusCell = (p: Player) => {
+    const s = p.status ?? ''
+    if (s.length <= STATUS_PREVIEW)
+      return html`<span class="cg-roster-saying" title=${s}>${s}</span>`
+    return html`<span class="cg-roster-saying" title=${s}
+      >${s.slice(0, STATUS_PREVIEW).trimEnd()}…<button
+        class="cg-roster-more"
+        @click=${() => setOverlay({ kind: 'status', name: p.name, text: s })}
+      >
+        more</button
+      ></span
+    >`
+  }
+
   const rosterRow = (p: Player, full: boolean) => {
     const connected = peerStates[p.id] === 'connected'
     const isMuted = mutedPeers.has(p.id)
@@ -751,7 +769,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
     return html`<li class="cg-roster-item ${isBlocked ? 'cg-blocked' : ''}">
       <span class="cg-roster-avatar ${ringOn ? 'cg-ring' : ''}" aria-hidden="true">${p.avatar || '●'}</span>
       <span class="cg-roster-name">${p.name}</span>
-      ${p.status ? html`<span class="cg-roster-saying" title=${p.status}>${p.status}</span>` : ''}
+      ${p.status ? statusCell(p) : ''}
       <span class="cg-visually-hidden">
         ${isBlocked
           ? 'blocked'
@@ -888,7 +906,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
               <textarea
                 class="cg-you-status"
                 rows="2"
-                maxlength="140"
+                maxlength="280"
                 aria-label="Set your status"
                 placeholder="Set a status… (Enter to post, Shift+Enter for a new line)"
                 .value=${statusDraft}
@@ -1065,7 +1083,19 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
         return config ? modal('Map JSON', jsonModal(config), 'cg-modal-wide') : ''
       case 'settings':
         return config ? modal('Grid settings', settingsModal(config)) : ''
+      case 'status':
+        return modal(`${overlay.name}'s status`, statusModal(overlay.name, overlay.text))
     }
+  }
+
+  function statusModal(name: string, text: string) {
+    return html`
+      <h3 class="cg-modal-title">${name}</h3>
+      <p class="cg-status-full">${text}</p>
+      <div class="cg-modal-actions">
+        <button class="cg-btn cg-btn-primary" @click=${closeOverlay}>Close</button>
+      </div>
+    `
   }
 
   // Shared modal chrome: backdrop (click to dismiss) + focusable dialog (Esc to
@@ -1497,6 +1527,9 @@ const STYLE = html`
       display: block;
       margin-top: 2px;
       color: var(--cg-dim);
+      /* preserve the author's line breaks/spacing — on the inner body span only,
+         so the popover template's own indentation isn't rendered as whitespace */
+      white-space: pre-wrap;
     }
     /* edge-aware placement so the popover never spills off the grid */
     .cg-pop.cg-pop-below {
@@ -1649,9 +1682,28 @@ const STYLE = html`
       min-width: 0;
       font-size: 12px;
       opacity: 0.75;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      overflow-wrap: anywhere; /* wrap long statuses instead of clipping */
+    }
+    /* inline "more" badge → opens the full status in a modal */
+    .cg-roster-more {
+      border: 0;
+      padding: 0;
+      margin-left: 4px;
+      background: none;
+      font: inherit;
+      color: var(--cg-accent);
+      cursor: pointer;
       white-space: nowrap;
+    }
+    .cg-roster-more:hover {
+      text-decoration: underline;
+    }
+    /* full status text in the modal — preserve author line breaks, wrap long words */
+    .cg-status-full {
+      margin: 0 0 14px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.5;
     }
     .cg-status {
       margin-top: 8px;

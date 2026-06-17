@@ -179,7 +179,8 @@ summary section {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
+  flex-wrap: wrap; /* at narrow widths the date drops to its own line instead of overflowing */
+  gap: 0.2rem 0.6rem;
 }
 
 /* The topic description renders as a bare <p>, which carries the browser default
@@ -207,7 +208,8 @@ details[open] .marker::before {
 }
 
 summary h2 {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0; /* allow the title to shrink/wrap rather than overflow the row */
   margin: 0;
   margin-right: auto;
   display: flex;
@@ -375,8 +377,10 @@ details[open]::details-content {
      behind it — normal bg or the accent-tinted hover state */
   --meta-line: color-mix(in srgb, var(--ink) 24%, transparent);
   display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: baseline;
+  /* minmax(0, …) lets the label column shrink and wrap on narrow widths instead
+     of taking its full max-content width and squishing the value. */
+  grid-template-columns: minmax(0, max-content) 1fr;
+  align-items: stretch; /* label cell bg + divider fill the full (wrapped) row height */
   gap: 0;
   margin: 0 0 0.6rem;
   width: fit-content;
@@ -402,6 +406,8 @@ details[open]::details-content {
   letter-spacing: 0.08em;
   border-right: 1px solid var(--meta-line);
   background-color: color-mix(in srgb, var(--ink) 6%, transparent);
+  min-width: 0; /* allow the label column to shrink so the label can wrap */
+  overflow-wrap: anywhere;
 }
 .topic-meta dd {
   margin: 0;

@@ -1,0 +1,237 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Chat-grid: architecture, debugging & extending",
+  "description": "A guided tour of the spatial-audio chat grid — the tech, the data flow, and where to reach in to fix or extend things on your own.",
+  "steps": [
+    {
+      "title": "0 · What this thing is",
+      "description": "**The chat-grid** is a spatial chat room. You walk an avatar around a tile map (WASD / click-to-travel); standing on connected \"audio\" tiles puts you in a voice room with whoever else is there; some tiles stream radio or open links. Everyone's position and presence sync live.\n\n**The tech, top to bottom:**\n- **Web Component** (`<chat-grid>`) built with **lit** (html templating) + **haunted** (React-style hooks for custom elements), rendered in **Shadow DOM**.\n- **Supabase Realtime** (Phoenix channels) for presence (who's here + where) and broadcast (moves, signaling).\n- **WebRTC** full-mesh for proximity **voice**, with **getUserMedia** + the **Web Audio API** for speaking detection.\n- Plain **CSS container queries** for a no-JS responsive board.\n\n**The one architectural idea to remember: functional core / imperative shell.**\n- `core/` = pure functions over plain data (no DOM, no network). Easy to read, trivial to unit-test, safe to change.\n- `shell/` + `chat-grid.ts` = the messy edges: the network, the DOM, audio, timers.\n\nWork through the steps in order. Where it matters, I call out **how to extend** and **how to debug**."
+    },
+    {
+      "title": "1 · The data model (Cell)",
+      "file": "projects/home/src/components/chat-grid/core/types.ts",
+      "line": 10,
+      "description": "Everything starts from data. A **Cell** is one tile. Its *capability* is expressed by optional fields — `walkable`, `audio`, `radio`, `link`, `char`, `color`, `description`. No field set = plain floor.\n\nThis is your first **extension point**: a brand-new kind of tile begins as a new optional field here. Keeping the model this flat is what makes the rest of the code a set of small `cell.thing ? …` checks."
+    },
+    {
+      "title": "2 · The serialized map (GridConfig)",
+      "file": "projects/home/src/components/chat-grid/core/types.ts",
+      "line": 48,
+      "description": "**GridConfig** is the on-disk shape: dimensions, spawn, `maxRoomCells`, and a flat list of `cells`. This is exactly what `grid.json` contains — the app fetches it at startup. It's the boundary between *authored content* and *runtime state*."
+    },
+    {
+      "title": "3 · The actual content lives in JSON",
+      "file": "projects/home/public/grid.json",
+      "line": 1,
+      "description": "This file **is** the map — the café layout, the radio pads, the meeting links. To add rooms, tiles, or links you edit this JSON (or use the in-app editor, which serializes back to this exact shape).\n\n**This is the #1 'change something visible' entry point** and it requires zero code. Coordinates are `{col, row}`, origin top-left."
+    },
+    {
+      "title": "4 · Runtime grid (the lookup map)",
+      "file": "projects/home/src/components/chat-grid/core/types.ts",
+      "line": 59,
+      "description": "**Grid** is the *derived* runtime structure: the same cells, but indexed in a `Map` keyed by `\"col,row\"` for O(1) lookups. The config is the wire format; the Grid is what the code actually queries."
+    },
+    {
+      "title": "5 · buildGrid + the pure selectors",
+      "file": "projects/home/src/components/chat-grid/core/grid.ts",
+      "line": 10,
+      "description": "`buildGrid(config)` turns the flat cell list into the `Map`. Below it are the **pure selectors** the whole app relies on: `cellAt`, `isWalkable`, `isAudio`, `radioAt`, `neighbors`, `nearestFreeCell`.\n\nThis file is the heart of the **functional core** — pure functions, no side effects. Notice there's no DOM or network anywhere. That's deliberate: you can call any of these in a test with a hand-built grid."
+    },
+    {
+      "title": "6 · Collision = isWalkable",
+      "file": "projects/home/src/components/chat-grid/core/grid.ts",
+      "line": 27,
+      "description": "The collision rule, in one place: a cell is walkable unless `walkable === false`. Walls, the pastry counter, and link 'kiosks' set this. If something is blocking movement when it shouldn't (or vice-versa), this selector and the cell's data are where you look."
+    },
+    {
+      "title": "7 · Movement: key → delta → coord",
+      "file": "projects/home/src/components/chat-grid/core/movement.ts",
+      "line": 17,
+      "description": "Pure movement logic. `keyToDelta` maps WASD/arrows to a `{col,row}` delta, `applyDelta` adds it, and **`canEnter`** (line 26) is the gate: in-bounds **and** walkable **and** not occupied by another player. The shell just feeds keystrokes in and reads the result — all the rules live here, fully testable."
+    },
+    {
+      "title": "8 · Click-to-travel: findPath",
+      "file": "projects/home/src/components/chat-grid/core/pathfind.ts",
+      "line": 11,
+      "description": "A breadth-first search over walkable, unoccupied cells — this is what makes clicking a far tile walk you there one step at a time. BFS (not A*) because the grid is tiny; simplicity wins. Pure in, pure out: `findPath(grid, from, to, occupied)` → list of coords."
+    },
+    {
+      "title": "9 · Audio rooms = flood fill",
+      "file": "projects/home/src/components/chat-grid/core/rooms.ts",
+      "line": 8,
+      "description": "**The core mechanic of the whole app.** `buildRooms` flood-fills connected `audio` cells (4-adjacency) into numbered components. Two audio tiles that touch = the same room id. Computed **once** per map; membership is then just a lookup.\n\nThis is why standing on adjacent audio tiles puts you 'in a room together' — you share a room id."
+    },
+    {
+      "title": "10 · Who's in my room → drives voice",
+      "file": "projects/home/src/components/chat-grid/core/rooms.ts",
+      "line": 37,
+      "description": "`peersInRoom(rooms, me, players)` returns the ids sharing my audio room. This single pure function is the bridge from *position* to *voice*: the shell feeds its output straight into the WebRTC mesh (connect these, drop everyone else). Remember this — it's the seam between the grid and the audio."
+    },
+    {
+      "title": "11 · The mesh-safety lever (validate)",
+      "file": "projects/home/src/components/chat-grid/core/validate.ts",
+      "line": 10,
+      "description": "Author-time guardrails. The important one: **`maxRoomCells`**. A full WebRTC mesh is O(n²) connections, so an audio room of N people means everyone holds N-1 peer connections. Capping room *size* caps mesh cost — that's the safety reason a room can't be arbitrarily large. If a map edit makes a room too big, this is what flags it."
+    },
+    {
+      "title": "12 · Presence-derived UI helpers",
+      "file": "projects/home/src/components/chat-grid/core/presence.ts",
+      "line": 17,
+      "description": "More pure helpers, this time over the *player list*: `diffPresence` (who joined/left/posted — drives the chimes), `rankRoster` (ordering the sidebar, promoting your own room), and `bubbleVisible`/`BUBBLE_MS` (status bubbles fade after 60s). UI behavior, expressed as pure data transforms the shell renders."
+    },
+    {
+      "title": "13 · FSM: connection status",
+      "file": "projects/home/src/components/chat-grid/core/fsm/session.ts",
+      "line": 17,
+      "description": "Lifecycle is modeled as small **finite state machines** — a pure `(state, event) → state` transition. Here: `connecting → connected → reconnecting → offline`. The shell dispatches events; this decides the next state. No hidden flags to desync.\n\nThis pattern repeats for peers and the mic — once you grok one FSM, you grok all three."
+    },
+    {
+      "title": "14 · FSM: per-peer connection",
+      "file": "projects/home/src/components/chat-grid/core/fsm/peer.ts",
+      "line": 18,
+      "description": "Each WebRTC peer's lifecycle: `idle → connecting → connected → closing`. `peerTransition` also returns named **effects** (`open`/`close`) — the pure machine *says* what should happen; the shell (webrtc.ts) actually does it. That split is the whole trick: decisions are testable, effects are isolated."
+    },
+    {
+      "title": "15 · FSM: mic permission gate",
+      "file": "projects/home/src/components/chat-grid/core/fsm/audio-gate.ts",
+      "line": 14,
+      "description": "`off → requesting → on / denied`, with a `requestMic` effect. This is why enabling audio is a clean, predictable flow instead of scattered booleans. **To debug 'mic won't turn on', start here**: which state is it stuck in, and did the `requestMic` effect actually fire?"
+    },
+    {
+      "title": "16 · Crossing into the shell",
+      "file": "projects/home/src/components/chat-grid/chat-grid.ts",
+      "line": 1,
+      "description": "Everything above was pure. From here down is the **imperative shell** — the one file that touches the network, the DOM, audio, and timers, and wires the pure core to all of it. It's big, but it's mostly *wiring*, not logic. Keep the core/shell line in mind as you read: any real *rule* belongs in `core/`; this file just orchestrates."
+    },
+    {
+      "title": "17 · The component itself (haunted)",
+      "file": "projects/home/src/components/chat-grid/chat-grid.ts",
+      "line": 109,
+      "description": "`ChatGrid` is a **haunted** function component: `useState`, `useEffect`, `useRef` — React's model, but for native Web Components. Props come from HTML attributes (`config-url`). If you've written React, this reads almost identically; the difference is it compiles to a real custom element with Shadow DOM."
+    },
+    {
+      "title": "18 · Registering <chat-grid>",
+      "file": "projects/home/src/components/chat-grid/chat-grid.ts",
+      "line": 2070,
+      "description": "`customElements.define('chat-grid', component(...))` — this is what makes `<chat-grid config-url=\"/grid.json\">` work in plain HTML (see `hangout/index.html`). `useShadowDOM` (default) scopes the styles so the component can't leak CSS into the page or vice-versa."
+    },
+    {
+      "title": "19 · The wiring hub (mount effect)",
+      "file": "projects/home/src/components/chat-grid/chat-grid.ts",
+      "line": 216,
+      "description": "The big `useEffect` that runs once on mount: load the config, `createBackend()` (network), `createMeshAudio()` (voice), and subscribe to presence/positions/signals. Its cleanup tears all of that down. This is the spine — most data flow passes through here."
+    },
+    {
+      "title": "20 · The seam: RealtimeBackend",
+      "file": "projects/home/src/components/chat-grid/shell/realtime.ts",
+      "line": 24,
+      "description": "**The most important interface in the codebase.** The whole app depends only on `RealtimeBackend` — `join`, `onPlayers`, `move`, `updateSelf`, `signal`, `leave` — never on Supabase directly. That decoupling is what lets a fake backend exist for local dev, and what you'd implement to swap transports entirely."
+    },
+    {
+      "title": "21 · Choosing a backend",
+      "file": "projects/home/src/components/chat-grid/shell/backend.ts",
+      "line": 9,
+      "description": "`createBackend()` picks the real Supabase backend or the in-memory fake based on config. One line, but it's the switch that makes the seam useful."
+    },
+    {
+      "title": "22 · Supabase Realtime backend",
+      "file": "projects/home/src/components/chat-grid/shell/realtime-supabase.ts",
+      "line": 26,
+      "description": "The real transport. Two Realtime primitives: **presence** (`channel.track`/`presenceState`, keyed by player id — line ~52/81) carries *who's here and their synced fields*; **broadcast** (line ~90) carries high-frequency *moves* and WebRTC *signaling*. `PRESENCE_GRACE_MS` (line 20) smooths brief disconnects. **To debug presence/ghosts, this file + the roster grace are where you look.**"
+    },
+    {
+      "title": "23 · The fake backend (local dev)",
+      "file": "projects/home/src/components/chat-grid/shell/realtime-fake.ts",
+      "line": 1,
+      "description": "A `BroadcastChannel`-based backend: open two browser tabs and they see each other with **no server at all**. This is the easiest way to develop/debug presence and movement locally — and a concrete example of the `RealtimeBackend` seam paying off."
+    },
+    {
+      "title": "24 · Presence → UI pipeline",
+      "file": "projects/home/src/components/chat-grid/chat-grid.ts",
+      "line": 234,
+      "description": "`backend.onPlayers(...)` is where remote state lands. The list flows through `diffPresence` (chimes) and into roster/render state. Follow this callback to understand how someone else's move or status shows up on your screen."
+    },
+    {
+      "title": "25 · Position → voice (the magic moment)",
+      "file": "projects/home/src/components/chat-grid/chat-grid.ts",
+      "line": 285,
+      "description": "This effect closes the loop: whenever your coord or the player set changes, it recomputes `peersInRoom(...)` and tells the mesh to connect to exactly those peers (minus blocked ones) and drop the rest. **Walking next to someone = this effect connecting a call.** Re-read steps 9–10 alongside it."
+    },
+    {
+      "title": "26 · WebRTC mesh audio",
+      "file": "projects/home/src/components/chat-grid/shell/webrtc.ts",
+      "line": 37,
+      "description": "`createMeshAudio` manages one `RTCPeerConnection` per peer (full mesh). It consumes signaling from the backend and emits remote audio streams back to the component to play. This is the imperative counterpart to the pure peer FSM from step 14."
+    },
+    {
+      "title": "27 · Perfect negotiation (the hard part)",
+      "file": "projects/home/src/components/chat-grid/shell/webrtc.ts",
+      "line": 105,
+      "description": "When both sides try to connect at once, offers collide. The **perfect-negotiation** pattern fixes it: each peer is `polite` or `impolite` (decided by comparing ids, line 57), and the polite one yields on collision. This `onnegotiationneeded` handler is the trickiest code in the repo.\n\n**To debug audio that won't connect:** open `chrome://webrtc-internals`, watch ICE/connection state, and check who's polite. Most 'no audio' bugs are signaling or ICE, not this app's logic."
+    },
+    {
+      "title": "28 · ICE servers (STUN/TURN)",
+      "file": "projects/home/src/components/chat-grid/shell/ice.ts",
+      "line": 5,
+      "description": "The STUN/TURN configuration WebRTC uses to traverse NATs. If two people can hear each other on the same network but not across networks, suspect missing TURN here."
+    },
+    {
+      "title": "29 · Mic capture + metering",
+      "file": "projects/home/src/components/chat-grid/chat-grid.ts",
+      "line": 504,
+      "description": "`navigator.mediaDevices.getUserMedia({ audio: true })` grabs the mic (gated by the audio-gate FSM), then a **meter** is wired up to detect speaking. Note: getUserMedia requires a **secure context** (https or localhost) — a real gotcha when testing over plain http."
+    },
+    {
+      "title": "30 · Speaking detection (Web Audio)",
+      "file": "projects/home/src/components/chat-grid/shell/meter.ts",
+      "line": 29,
+      "description": "`createMeter` taps the mic through a Web Audio `AnalyserNode`; the pure helpers in `core/audio-level.ts` (`rms` → `loudness` → `isSpeaking`) turn raw samples into the green 'speaking' ring. Classic shell/core split again: Web Audio plumbing here, the math is pure and tested."
+    },
+    {
+      "title": "31 · The radio tiles",
+      "file": "projects/home/src/components/chat-grid/shell/radio.ts",
+      "line": 18,
+      "description": "`createRadio` wraps a plain `HTMLAudioElement` to stream a station URL. The effect that drives it (chat-grid.ts:312) is **position-driven and idempotent**: standing on a `radio` cell tunes that URL for you only; stepping off stops it. Re-renders never restart the stream because the effect reflects the cell's data, not a separate flag."
+    },
+    {
+      "title": "32 · Ghost cleanup on close",
+      "file": "projects/home/src/components/chat-grid/chat-grid.ts",
+      "line": 329,
+      "description": "Closing a tab doesn't run React-style effect cleanup, so presence would linger as a 'ghost' until the server times out the socket. This `pagehide` handler proactively calls `leave()`. **If you see ghost avatars, this + the server-side presence timeout is the area** — and note `pagehide` (not `unload`) because mobile Safari ignores `unload`."
+    },
+    {
+      "title": "33 · Best-effort storage (a real gotcha)",
+      "file": "projects/home/src/components/chat-grid/shell/identity.ts",
+      "line": 12,
+      "description": "Name/avatar/draft/sound-prefs persist via `localStorage` — but every access is wrapped in `try/catch` that falls back to defaults. **Why it matters:** privacy browsers (Firefox Focus) and private modes *throw* on storage access, and one unguarded throw during render blanks the whole component. Any new storage you add must follow this pattern."
+    },
+    {
+      "title": "34 · Rendering a tile",
+      "file": "projects/home/src/components/chat-grid/render/cell.ts",
+      "line": 11,
+      "description": "`renderCellGlyph` decides what's drawn in a cell (emoji/char/inline-SVG/audio icon). The shared `popover.ts` (next door) renders both the hover description and the status bubble. Rendering is kept as small pure-ish functions returning lit templates."
+    },
+    {
+      "title": "35 · The board + container-query sizing",
+      "file": "projects/home/src/components/chat-grid/chat-grid.ts",
+      "line": 1396,
+      "description": "The whole board is one CSS grid, and cell size is `min(40px, (100cqw - 8px) / cols)`. **`100cqw` is a container-query unit** — the component declares `container-type: inline-size` (line ~1320) so the board scales to its own width with zero JavaScript. This is why it's responsive on mobile. (It also means: if the host width ever collapses to 0, cells go to 0 — a sizing bug to know about.)"
+    },
+    {
+      "title": "36 · The in-app cell editor (extension hot-spot)",
+      "file": "projects/home/src/components/chat-grid/chat-grid.ts",
+      "line": 413,
+      "description": "`cellRole`/`setRole` power the live editor (set a tile to floor/wall/audio/radio/link, then export JSON). Roles are **mutually exclusive** — picking one clears the others.\n\nThis is the concrete place a new tile *type* surfaces to users, and it's the last stop in the add-a-tile chain (see the final step)."
+    },
+    {
+      "title": "37 · The safety net: the core is tested",
+      "file": "projects/home/src/components/chat-grid/core/rooms.test.ts",
+      "line": 1,
+      "description": "Because the core is pure, it's covered by fast unit tests (`*.test.ts` next to each module — run `npm test`). When you change movement, rooms, pathfinding, or presence logic, these catch regressions immediately. **This is your main lever for changing behavior confidently without an LLM:** edit a pure function, run the tests, watch them go red/green."
+    },
+    {
+      "title": "38 · Playbook — how to extend & debug",
+      "description": "A cheat-sheet built from the tour. Most changes are a short, predictable chain:\n\n**Add a new tile capability** (e.g. a 'portal'):\n1. `core/types.ts` — add the optional field on `Cell`.\n2. `core/grid.ts` — add a selector (`portalAt`).\n3. `render/cell.ts` — draw its glyph.\n4. `chat-grid.ts` `cellRole`/`setRole` — expose it in the editor (step 36).\n5. An effect in `chat-grid.ts` that *acts* on it (mirror the radio effect, step 31).\n6. `core/validate.ts` + a `*.test.ts` if it has rules.\n\n**Add a presence-synced player field** (e.g. a status emoji):\n`core/types.ts` `Player` → `backend.updateSelf(...)` in `chat-grid.ts` → render it in `rosterRow`/the bubble. Presence carries it to everyone for free.\n\n**Debugging map:**\n- *No voice / one-way audio* → audio-gate FSM (15) → getUserMedia secure-context (29) → perfect negotiation (27) → `chrome://webrtc-internals`.\n- *Ghost avatars* → pagehide leave (32) + Supabase presence/grace (22).\n- *Blank board* → container-query sizing (35) or an unguarded storage throw (33).\n- *Movement/room bugs* → it's pure: reproduce in a `core/*.test.ts` (37).\n- *Local repro without a server* → the fake BroadcastChannel backend (23), two tabs.\n\n**The mental model:** find whether your change is a *rule* (→ `core/`, write a test) or *plumbing* (→ `shell/` or `chat-grid.ts`). That single question routes almost everything."
+    }
+  ]
+}
