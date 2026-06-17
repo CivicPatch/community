@@ -37,6 +37,7 @@
       url: https://github.com/CivicPatch/community/discussions/categories/civicmirror.atom
 - name: feeds
   type: project
+  description: You are looking at it.
   feeds:
     - type: "commit_event"
       url: https://github.com/CivicPatch/community/commits/main/projects/feeds.atom
