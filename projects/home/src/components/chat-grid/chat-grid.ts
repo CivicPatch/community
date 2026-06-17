@@ -318,6 +318,21 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
   // release the audio element when the component goes away
   useEffect(() => () => radioRef.current?.dispose(), [])
 
+  // Closing a tab/window does NOT run the effect cleanup above, so leave() never
+  // fires and our presence lingers as a "ghost" until the server times out the
+  // dropped socket — inconsistent, because it depends on whether the socket
+  // closed gracefully. Proactively leave on `pagehide` (the reliable close/nav
+  // signal; `unload`/`beforeunload` don't fire on mobile Safari). Skip the
+  // bfcache case (persisted) — that page may come back, so don't tear it down.
+  useEffect(() => {
+    const onPageHide = (e: PageTransitionEvent) => {
+      if (e.persisted) return
+      backendRef.current?.leave()
+    }
+    window.addEventListener('pagehide', onPageHide)
+    return () => window.removeEventListener('pagehide', onPageHide)
+  }, [])
+
   // Cells are exclusive, but two clients can land on the same one (e.g. both spawn
   // there before presence syncs). Deterministic tiebreak: the lowest id keeps the
   // cell; anyone else hops to the nearest free cell.
