@@ -3,6 +3,11 @@
 import type { Coord, Grid } from './types'
 import { coordKey, isWalkable } from './grid'
 
+/** Pace of a single traversal step, ms. Shared by the local walker (use-movement)
+ *  and the remote replay (travel animator) so an announced path plays back at the
+ *  same cadence everywhere. */
+export const STEP_MS = 140
+
 const KEY_DELTAS: Record<string, Coord> = {
   w: { col: 0, row: -1 },
   s: { col: 0, row: 1 },

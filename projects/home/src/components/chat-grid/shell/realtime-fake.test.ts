@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Player, PlayerId } from '../core/types'
 import type { Signal, VoiceState } from './realtime'
+import { STEP_MS } from '../core/movement'
 import { createFakeBackend } from './realtime-fake'
 
 // Synchronous in-memory BroadcastChannel: delivers each message to every OTHER
@@ -79,6 +80,38 @@ describe('realtime-fake multi-client protocol', () => {
     const b = client('b')
     a.backend.updatePosition({ col: 5, row: 7 })
     expect(b.see('a')?.coord).toEqual({ col: 5, row: 7 })
+  })
+
+  it('a travel announcement replays on peers cell by cell', () => {
+    vi.useFakeTimers()
+    try {
+      const a = client('a')
+      const b = client('b')
+      a.backend.travelTo([{ col: 1, row: 0 }, { col: 2, row: 0 }, { col: 3, row: 0 }])
+      expect(b.see('a')?.coord).toEqual({ col: 1, row: 0 }) // first cell immediately
+      vi.advanceTimersByTime(STEP_MS)
+      expect(b.see('a')?.coord).toEqual({ col: 2, row: 0 })
+      vi.advanceTimersByTime(STEP_MS)
+      expect(b.see('a')?.coord).toEqual({ col: 3, row: 0 }) // arrived
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a discrete move mid-travel supersedes the replay', () => {
+    vi.useFakeTimers()
+    try {
+      const a = client('a')
+      const b = client('b')
+      a.backend.travelTo([{ col: 1, row: 0 }, { col: 2, row: 0 }, { col: 3, row: 0 }])
+      expect(b.see('a')?.coord).toEqual({ col: 1, row: 0 })
+      a.backend.updatePosition({ col: 9, row: 9 }) // corrected away from the announced path
+      expect(b.see('a')?.coord).toEqual({ col: 9, row: 9 })
+      vi.advanceTimersByTime(STEP_MS * 3) // the rest of the walk must not resume
+      expect(b.see('a')?.coord).toEqual({ col: 9, row: 9 })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('leave removes the player from peers', () => {

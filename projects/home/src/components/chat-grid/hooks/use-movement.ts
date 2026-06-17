@@ -8,10 +8,8 @@ import { useEffect, useRef } from 'haunted'
 import type { Cell, Coord, Grid, Player } from '../core/types'
 import type { RealtimeBackend } from '../shell/realtime'
 import { cellAt, coordKey, coordsEqual, nearestFreeCell } from '../core/grid'
-import { applyDelta, canEnter, keyToDelta } from '../core/movement'
+import { applyDelta, canEnter, keyToDelta, STEP_MS } from '../core/movement'
 import { findPath } from '../core/pathfind'
-
-const STEP_MS = 140 // pace of click-to-travel
 
 const occupiedSet = (players: Player[]): Set<string> => {
   const s = new Set<string>()
@@ -43,13 +41,16 @@ export const useMovement = (deps: MovementDeps) => {
     }
   }
 
-  const moveTo = (target: Coord) => {
+  // broadcast=false during click-to-travel: the whole trip is announced once up
+  // front (travelTo) and replayed on each peer, so the per-cell steps stay local.
+  const moveTo = (target: Coord, broadcast = true): boolean => {
     const g = gridRef.current
-    if (!g) return
-    if (!canEnter(g, target, occupiedSet(othersRef.current))) return
+    if (!g) return false
+    if (!canEnter(g, target, occupiedSet(othersRef.current))) return false
     if (me.current) me.current.coord = target
     setMyCoord(target)
-    backendRef.current?.updatePosition(target)
+    if (broadcast) backendRef.current?.updatePosition(target)
+    return true
   }
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -63,13 +64,22 @@ export const useMovement = (deps: MovementDeps) => {
 
   const startTravel = (path: Coord[]) => {
     cancelTravel()
+    if (!path.length) return
+    backendRef.current?.travelTo(path) // announce the whole trip once; peers replay it
     let i = 0
+    // settle everyone on our final cell — confirms the arrival for latecomers, and
+    // corrects peers if we stop short (a settle ≠ the announced destination snaps them).
+    const settle = () => {
+      if (me.current) backendRef.current?.updatePosition(me.current.coord)
+      cancelTravel()
+    }
     const tick = () => {
       const g = gridRef.current
-      if (i >= path.length || !g) return cancelTravel()
+      if (!g) return cancelTravel()
+      if (i >= path.length) return settle() // arrived
       const step = path[i]
-      if (!canEnter(g, step, occupiedSet(othersRef.current))) return cancelTravel() // blocked mid-walk
-      moveTo(step)
+      if (!canEnter(g, step, occupiedSet(othersRef.current))) return settle() // blocked mid-walk
+      moveTo(step, false) // animate locally; the trip was already announced
       i++
     }
     // establish the interval BEFORE the first step, so a throw in step 0 can't
