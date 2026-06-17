@@ -114,25 +114,25 @@ const TopicList = (
                                 ? html`<section><p>${topic.description}</p></section>`
                                 : ''}
                         </summary>
+                        ${topic.url ? html`
                         <dl class="topic-meta">
-                            ${topic.url ? html`
-                                <dt>link</dt>
-                                <dd>
-                                    <a href=${topic.url} target="_blank" rel="noopener">
-                                        ${topic.url}
-                                    </a>
-                                </dd>
-                                ${
-                                    topic.meta &&
-                                    topic.meta.map((metaItem) => {
-                                        return html`
-                                        <dt>${metaItem.label}</dd>
-                                        <dd>${unsafeHTML(DOMPurify.sanitize(metaItem.content))}</dd>
-                                        `
-                                    })
-                                }
-                            ` : ''}
+                            <dt>link</dt>
+                            <dd>
+                                <a href=${topic.url} target="_blank" rel="noopener">
+                                    ${topic.url}
+                                </a>
+                            </dd>
+                            ${
+                                topic.meta &&
+                                topic.meta.map((metaItem) => {
+                                    return html`
+                                    <dt>${metaItem.label}</dt>
+                                    <dd>${unsafeHTML(DOMPurify.sanitize(metaItem.content))}</dd>
+                                    `
+                                })
+                            }
                         </dl>
+                        ` : ''}
                         <ol class="entries">
                             ${topicGroup.entries.map((entry: any) => {
                                 const title = toPlainText(entry.title)

@@ -182,6 +182,14 @@ summary section {
   gap: 0.6rem;
 }
 
+/* The topic description renders as a bare <p>, which carries the browser default
+   1em block margin — so topics WITH a description (e.g. ideas) get extra
+   whitespace, especially on the bottom, that description-less topics (e.g. news)
+   don't. The summary's flex gap already handles spacing, so zero the p margin. */
+summary p {
+  margin: 0;
+}
+
 /* terminal-style [+] / [-] toggle */
 .marker {
   flex-shrink: 0;
@@ -327,6 +335,7 @@ details[open]::details-content {
     grid-template-columns: 2rem 1fr;
     column-gap: 0.55rem;
     row-gap: 0.25rem;
+    padding-block: 0.75rem; /* more breathing room between stacked items on mobile */
   }
   .entry-meta {
     grid-column: 2; /* sit under the title body, not the number */
@@ -334,6 +343,18 @@ details[open]::details-content {
     align-items: center;
     justify-content: flex-start;
     gap: 0.5rem;
+  }
+
+  /* Metabox: the auto-sized label column squishes the value on a narrow screen.
+     Stack each pair instead — label on its own line, value full width below. */
+  .topic-meta {
+    grid-template-columns: 1fr;
+  }
+  .topic-meta dt {
+    border-right: 0; /* no second column to divide */
+  }
+  .topic-meta dd {
+    border-top: 0; /* keep the value attached to its label; divider sits above each dt */
   }
 }
 
