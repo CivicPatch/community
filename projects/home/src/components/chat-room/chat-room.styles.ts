@@ -88,9 +88,13 @@ export const STYLE = html`
       max-width: 100%;
     }
     .cr-board {
+      /* stable play-area height; cells size to fit it (see --cell), so a room shrinks
+         to fit rather than scrolling — until it'd dip below the min cell size, then
+         the ▲▼◀▶ arrows + follow take over (same as a too-wide room on mobile). */
+      --board-h: min(74dvh, 760px);
       width: fit-content;
       max-width: 100%;
-      height: min(74dvh, 760px);
+      height: var(--board-h);
       overflow: auto;
       overscroll-behavior: contain;
       display: grid;
@@ -138,10 +142,16 @@ export const STYLE = html`
       box-shadow: 0 0 0 2px var(--cr-accent), 0 1px 5px rgba(0, 0, 0, 0.4);
     }
     .cr-grid {
-      /* cells fill the width but never below a tappable minimum (mobile) nor above
-         40px; tokens position via --cell too, so the avatar overlay scales in
-         lockstep. Below the minimum the grid overflows and the board scrolls. */
-      --cell: clamp(28px, calc((100cqw - 8px) / var(--cols)), 40px);
+      /* cells shrink to fit the board in BOTH axes (width and --board-h height), so a
+         room fits with no scroll — but never below a tappable 28px nor above 40px.
+         When fitting would need < 28px, the grid overflows and the board scrolls
+         (arrows + camera-follow take over). tokens use --cell too, so they scale in
+         lockstep. */
+      --cell: clamp(
+        28px,
+        min((100cqw - 8px) / var(--cols), (var(--board-h) - 6px) / var(--rows)),
+        40px
+      );
       position: relative;
       display: inline-block;
       padding: 2px;
