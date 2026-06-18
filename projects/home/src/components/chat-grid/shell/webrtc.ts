@@ -22,7 +22,7 @@ interface PeerRec {
 export interface MeshAudio {
   /** Provide (or clear) the local mic stream; tracks are added to all peers. */
   setMic(stream: MediaStream | null): void
-  /** The set of peers we should be connected to (driven by the room diff). */
+  /** The set of peers we should be connected to (driven by the huddle diff). */
   setWantedPeers(ids: PlayerId[]): void
   /** Peers to sever and refuse connections from (local block / moderation). */
   setBlockedPeers(ids: PlayerId[]): void
@@ -199,7 +199,7 @@ export const createMeshAudio = (selfId: PlayerId, backend: RealtimeBackend): Mes
         cancelUnwant(id) // back (or still here) — don't tear down
         dispatch(id, 'wanted')
       }
-      // debounce removals: a peer you briefly leave (walking along a room edge)
+      // debounce removals: a peer you briefly leave (walking along a huddle edge)
       // lingers a moment, so fast movement doesn't thrash connect/disconnect
       for (const id of [...peers.keys()]) {
         if (wanted.has(id) || pendingUnwant.has(id)) continue

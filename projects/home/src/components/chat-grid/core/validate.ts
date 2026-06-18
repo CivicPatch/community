@@ -1,11 +1,11 @@
 // Author-time guardrails. Returns human-readable problems; [] means valid.
-// The room-size cap is the mesh-safety lever: forbid oversized audio rooms.
+// The huddle-size cap is the mesh-safety lever: forbid oversized huddles.
 
 import type { GridConfig } from './types'
 import { buildGrid, coordKey, inBounds } from './grid'
-import { buildRooms } from './rooms'
+import { buildHuddles } from './huddles'
 
-export const DEFAULT_MAX_ROOM_CELLS = 6
+export const DEFAULT_MAX_HUDDLE_CELLS = 6
 
 export const validateGrid = (config: GridConfig): string[] => {
   const errors: string[] = []
@@ -30,13 +30,13 @@ export const validateGrid = (config: GridConfig): string[] => {
   if (config.spawn && !inBounds(grid, config.spawn))
     errors.push(`spawn out of bounds: ${coordKey(config.spawn)}`)
 
-  const cap = config.maxRoomCells ?? DEFAULT_MAX_ROOM_CELLS
+  const cap = config.maxHuddleCells ?? DEFAULT_MAX_HUDDLE_CELLS
   const counts = new Map<number, number>()
-  for (const roomId of buildRooms(grid).values())
-    counts.set(roomId, (counts.get(roomId) ?? 0) + 1)
-  for (const [roomId, count] of counts)
+  for (const huddleId of buildHuddles(grid).values())
+    counts.set(huddleId, (counts.get(huddleId) ?? 0) + 1)
+  for (const [huddleId, count] of counts)
     if (count > cap)
-      errors.push(`audio room ${roomId} has ${count} cells (max ${cap}) — split it up`)
+      errors.push(`huddle ${huddleId} has ${count} cells (max ${cap}) — split it up`)
 
   return errors
 }

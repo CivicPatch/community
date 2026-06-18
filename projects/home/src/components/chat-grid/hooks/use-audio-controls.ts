@@ -44,7 +44,7 @@ export const useAudioControls = (deps: AudioControlsDeps) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       micRef.current = stream
-      stream.getAudioTracks().forEach((t) => (t.enabled = false)) // the gate enables it when in a room
+      stream.getAudioTracks().forEach((t) => (t.enabled = false)) // the gate enables it when in a huddle
       meshRef.current?.setMic(stream)
       if (me.current) me.current.audioEnabled = true
       backendRef.current?.updateSelf({ audioEnabled: true }) // green ring = "enabled audio", synced to all

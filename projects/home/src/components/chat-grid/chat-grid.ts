@@ -1,6 +1,6 @@
 // Composition root (imperative shell): renders the grid, wires input to the pure
 // core, and syncs presence through the swappable realtime backend.
-// Phase 0: movement + collision + click-to-travel + room highlight. No audio yet.
+// Phase 0: movement + collision + click-to-travel + huddle highlight. No audio yet.
 
 import { html } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
@@ -15,7 +15,7 @@ import { loadSoundPrefs, saveSoundPrefs } from './shell/sound-prefs'
 import type { SoundPrefs } from './shell/sound-prefs'
 import type { Pinger } from './shell/ping'
 import { bubbleVisible, rankRoster } from './core/presence'
-import { buildRooms, peersInRoom, roomOf } from './core/rooms'
+import { buildHuddles, peersInHuddle, huddleOf } from './core/huddles'
 import { describeCell } from './core/describe'
 import { validateGrid } from './core/validate'
 import { readableInk } from './core/color'
@@ -68,7 +68,7 @@ interface ChatGridProps {
 
 const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => {
   const [grid, setGrid] = useState<Grid | null>(null)
-  const [rooms, setRooms] = useState<Map<string, number>>(new Map())
+  const [huddles, setHuddles] = useState<Map<string, number>>(new Map())
   const [errors, setErrors] = useState<string[]>([])
   const [others, setOthers] = useState<Player[]>([])
   const [myCoord, setMyCoord] = useState<Coord | null>(null)
@@ -168,7 +168,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
     const g = buildGrid(c)
     setConfig(c)
     setGrid(g)
-    setRooms(buildRooms(g))
+    setHuddles(buildHuddles(g))
     setErrors(validateGrid(c))
   }
 
@@ -178,11 +178,11 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
     saveDraft(c)
   }
 
-  // Route the mesh from room membership + blocks (see hooks/use-mesh-routing.ts).
-  useMeshRouting(meshRef, { gate, myCoord, others, rooms, blockedPeers })
+  // Route the mesh from huddle membership + blocks (see hooks/use-mesh-routing.ts).
+  useMeshRouting(meshRef, { gate, myCoord, others, huddles, blockedPeers })
 
-  // Transmit the mic only while in an audio room and unmuted (see hooks/use-mic-gate.ts).
-  useMicGate(micRef, { myCoord, rooms, gate, muted })
+  // Transmit the mic only while in an huddle and unmuted (see hooks/use-mic-gate.ts).
+  useMicGate(micRef, { myCoord, huddles, gate, muted })
 
   // Walker-only music, tuned by your tile (see hooks/use-radio.ts).
   useRadio(grid, myCoord)
@@ -296,12 +296,12 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
   // edge-aware popover alignment shared by cells + token bubbles (no measuring needed)
   const popAlign = (col: number): 'left' | 'right' | undefined =>
     col < 3 ? 'left' : col >= columns - 3 ? 'right' : undefined
-  const myRoom = myCoord ? roomOf(rooms, myCoord) : null
-  const roomPeers = myCoord ? peersInRoom(rooms, myCoord, others) : []
-  // whole-grid roster, with my audio blob promoted; blob === others in my room
-  const ranked = rankRoster(others, rooms, myCoord)
-  const roomPeerPlayers = ranked.blob
-  const connectedCount = roomPeerPlayers.filter((p) => peerStates[p.id] === 'connected').length
+  const myHuddle = myCoord ? huddleOf(huddles, myCoord) : null
+  const huddlePeers = myCoord ? peersInHuddle(huddles, myCoord, others) : []
+  // whole-grid roster, with my huddle promoted; huddle === others in my huddle
+  const ranked = rankRoster(others, huddles, myCoord)
+  const huddlePeerPlayers = ranked.huddle
+  const connectedCount = huddlePeerPlayers.filter((p) => peerStates[p.id] === 'connected').length
   // side panel = the description of the tile you're STANDING on (hover uses the popover).
   // describeCell supplies a role-based default when the tile has no authored text.
   const description = myCoord ? describeCell(cellAt(grid, myCoord)) : undefined
@@ -316,11 +316,11 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
       const link = cell?.link ?? null
       const wall = cell?.walkable === false
       const hasDesc = !!cell?.description
-      const activeRoom = isAudioCell && myRoom !== null && roomOf(rooms, coord) === myRoom
+      const activeHuddle = isAudioCell && myHuddle !== null && huddleOf(huddles, coord) === myHuddle
       const classes = ['cg-cell']
       if (isAudioCell) classes.push('cg-audio')
       if (isRadioCell) classes.push('cg-radio')
-      if (activeRoom) classes.push('cg-active-room')
+      if (activeHuddle) classes.push('cg-active-huddle')
       if (link) classes.push('cg-link')
       if (hasDesc) classes.push('cg-has-desc')
       if (wall) classes.push('cg-wall')
@@ -385,7 +385,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
     avatar: string | undefined,
     isMe: boolean,
     enabled: boolean,
-    inBlob: boolean,
+    inHuddle: boolean,
     voice?: VoiceState,
     bubble?: string,
   ) => {
@@ -395,7 +395,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
     const classes = ['cg-token']
     if (isMe) classes.push('cg-me')
     if (enabled) classes.push('cg-enabled') // green ring — has enabled audio (everyone sees it)
-    if (speaking && inBlob) classes.push('cg-speaking') // white ring — talking in your blob
+    if (speaking && inHuddle) classes.push('cg-speaking') // white ring — talking in your huddle
     if (speaking) classes.push('cg-wiggling') // shake — anyone talking, grid-wide
     return html`
       <div class=${classes.join(' ')} style="--col:${c.col};--row:${c.row};--shake:${shake}">
@@ -513,7 +513,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
                   p.avatar,
                   false,
                   p.audioEnabled ?? false,
-                  myRoom !== null && roomOf(rooms, p.coord) === myRoom,
+                  myHuddle !== null && huddleOf(huddles, p.coord) === myHuddle,
                   voices[p.id],
                   p.status && bubbleVisible(p.statusAt, nowMs) ? p.status : undefined,
                 ),
@@ -525,7 +525,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
                   me.current?.avatar,
                   true,
                   gate === 'on',
-                  myRoom !== null,
+                  myHuddle !== null,
                   voices[meId.current],
                   me.current?.status && bubbleVisible(me.current?.statusAt, nowMs)
                     ? me.current.status
@@ -583,9 +583,9 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
             ${others.length === 0
               ? html`<p class="cg-roster-empty">No one else here yet.</p>`
               : html`
-                  ${ranked.blob.length
-                    ? html`<h4 class="cg-roster-head">In your audio room</h4>
-                        <ul class="cg-roster-list">${ranked.blob.map((p) => rosterRow(p, true))}</ul>`
+                  ${ranked.huddle.length
+                    ? html`<h4 class="cg-roster-head">In your huddle</h4>
+                        <ul class="cg-roster-list">${ranked.huddle.map((p) => rosterRow(p, true))}</ul>`
                     : ''}
                   ${ranked.grid.length
                     ? html`<h4 class="cg-roster-head">Around the grid</h4>
@@ -636,14 +636,14 @@ const ChatGrid = ({ 'config-url': configUrl = '/grid.json' }: ChatGridProps) => 
         <strong>${meName.current}</strong>
         ${myCoord ? html` @ ${myCoord.col},${myCoord.row}` : ''} ·
         ${gate === 'on'
-          ? myRoom === null
+          ? myHuddle === null
             ? 'step onto an audio tile to talk'
-            : roomPeers.length === 0
-              ? 'no one else in this room yet'
+            : huddlePeers.length === 0
+              ? 'no one else in this huddle yet'
               : `talking with ${connectedCount}`
-          : myRoom === null
-            ? 'not in an audio room'
-            : `audio room #${myRoom} — ${roomPeers.length + 1} here`}
+          : myHuddle === null
+            ? 'not in a huddle'
+            : `huddle #${myHuddle} — ${huddlePeers.length + 1} here`}
         · ${others.length} other${others.length === 1 ? '' : 's'} online
         <div class="cg-hint">click the grid, then move with WASD / arrows or click a cell</div>
       </div>

@@ -1,4 +1,4 @@
-// Roster rows. `full` rows (your audio blob) are real peers — connection dot,
+// Roster rows. `full` rows (your huddle) are real peers — connection dot,
 // connecting state, and the mute/block menu. Light rows (rest of the grid) are
 // presence-only: avatar, name, status.
 //
@@ -51,7 +51,7 @@ export const makeRosterRow =
       fn()
       deps.setMenuOpenFor(null)
     }
-    // green ring mirrors the grid token: blob peers ring once actually connected,
+    // green ring mirrors the grid token: huddle peers ring once actually connected,
     // grid people ring when their mic is enabled (presence-synced).
     const ringOn = full ? connected : !!p.audioEnabled
     return html`<li class="cg-roster-item ${isBlocked ? 'cg-blocked' : ''}">

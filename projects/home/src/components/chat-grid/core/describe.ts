@@ -18,8 +18,8 @@ export const describeCell = (cell: Cell | undefined): CellDescription | undefine
     }
   if (cell.audio)
     return {
-      title: '🔊 Audio blob',
-      body: "You're in an audio blob. Don't forget to enable audio to listen & talk!",
+      title: '🔊 Huddle',
+      body: "You're in a huddle — enable audio to listen & talk!",
     }
   if (cell.link)
     return {

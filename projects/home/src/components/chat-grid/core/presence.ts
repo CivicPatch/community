@@ -1,8 +1,8 @@
 // Pure presence-derived helpers. No DOM and no time source of their own — `now` is
 // passed in, so callers (and tests) stay deterministic.
 
-import { roomOf } from './rooms'
-import type { Coord, Player, PlayerId, RoomId } from './types'
+import { huddleOf } from './huddles'
+import type { Coord, Player, PlayerId, HuddleId } from './types'
 
 export interface PresenceDiff {
   joined: PlayerId[]
@@ -29,25 +29,25 @@ export const diffPresence = (prev: Player[], next: Player[]): PresenceDiff => {
 }
 
 export interface RankedRoster {
-  /** others in MY audio room (people I can hear) — promoted under "You" */
-  blob: Player[]
+  /** others in MY huddle (people I can hear) — promoted under "You" */
+  huddle: Player[]
   /** everyone else online */
   grid: Player[]
 }
 
-/** Partition the roster into my audio blob vs. the rest of the grid, each sorted by
+/** Partition the roster into my huddle vs. the rest of the grid, each sorted by
  *  distance from me (so nearer people rise), name as the tiebreaker. The whole roster
- *  is shown; audio-room membership is a sort/grouping signal, not a filter. */
+ *  is shown; huddle membership is a sort/grouping signal, not a filter. */
 export const rankRoster = (
   others: Player[],
-  rooms: Map<string, RoomId>,
+  huddles: Map<string, HuddleId>,
   myCoord: Coord | null,
 ): RankedRoster => {
-  const myRoom = myCoord ? roomOf(rooms, myCoord) : null
-  const blob: Player[] = []
+  const myHuddle = myCoord ? huddleOf(huddles, myCoord) : null
+  const huddle: Player[] = []
   const grid: Player[] = []
   for (const p of others) {
-    if (myRoom !== null && roomOf(rooms, p.coord) === myRoom) blob.push(p)
+    if (myHuddle !== null && huddleOf(huddles, p.coord) === myHuddle) huddle.push(p)
     else grid.push(p)
   }
   const rank = (a: Player, b: Player) => {
@@ -58,7 +58,7 @@ export const rankRoster = (
     }
     return a.name.localeCompare(b.name)
   }
-  return { blob: blob.sort(rank), grid: grid.sort(rank) }
+  return { huddle: huddle.sort(rank), grid: grid.sort(rank) }
 }
 
 /** How long a freshly-set status shows as a floating bubble before it settles to

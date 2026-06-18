@@ -30,15 +30,15 @@ describe('validateGrid', () => {
     expect(errs.some((e) => e.includes('spawn out of bounds'))).toBe(true)
   })
 
-  it('flags an oversized audio room (default cap 6)', () => {
+  it('flags an oversized huddle (default cap 6)', () => {
     const row = Array.from({ length: 7 }, (_, col) => audio(col, 0))
     const errs = validateGrid({ columns: 10, rows: 10, cells: row })
     expect(errs.some((e) => e.includes('max 6'))).toBe(true)
   })
 
-  it('respects a custom maxRoomCells', () => {
+  it('respects a custom maxHuddleCells', () => {
     const row = Array.from({ length: 7 }, (_, col) => audio(col, 0))
-    expect(validateGrid({ columns: 10, rows: 10, cells: row, maxRoomCells: 8 })).toEqual([])
+    expect(validateGrid({ columns: 10, rows: 10, cells: row, maxHuddleCells: 8 })).toEqual([])
   })
 
   it('flags non-positive dimensions', () => {
