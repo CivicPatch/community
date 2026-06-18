@@ -35,7 +35,7 @@ export const STYLE = html`
       font-family: system-ui, sans-serif;
       color: var(--cg-text);
     }
-    /* grid + detail panel: side by side when there's room, panel wraps below when not */
+    /* grid + detail panel: side by side when there's huddle, panel wraps below when not */
     .cg-stage {
       display: flex;
       flex-wrap: wrap;
@@ -124,7 +124,7 @@ export const STYLE = html`
     .cg-cell.cg-audio {
       background: var(--cg-audio);
     }
-    .cg-cell.cg-audio.cg-active-room {
+    .cg-cell.cg-audio.cg-active-huddle {
       background: var(--cg-audio-active);
       box-shadow: inset 0 0 0 2px var(--cg-accent);
     }
@@ -655,7 +655,7 @@ export const STYLE = html`
       line-height: 1;
       filter: drop-shadow(0 1px 1px #000);
     }
-    /* speaking ring (VAD): only for people in YOUR blob — the "light" indicator */
+    /* speaking ring (VAD): only for people in YOUR huddle — the "light" indicator */
     .cg-token.cg-speaking .cg-token-avatar {
       box-shadow:
         0 0 0 3px var(--cg-enabled),

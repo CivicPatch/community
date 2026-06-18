@@ -1,6 +1,6 @@
 // Music tiles: standing on a radio cell streams it for ME only; stepping off (or
 // onto a different station) retunes/stops. Position-driven and idempotent in the
-// shell, so re-renders never restart a stream. Mirrors the mic-room effect. Owns
+// shell, so re-renders never restart a stream. Mirrors the mic-huddle effect. Owns
 // the <audio> element and releases it on unmount.
 
 import { useEffect, useRef } from 'haunted'

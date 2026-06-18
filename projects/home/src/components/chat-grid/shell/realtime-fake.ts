@@ -1,6 +1,6 @@
 // In-memory multi-tab backend: BroadcastChannel relays presence/positions/signals
 // between tabs on the same origin. No server, no network — enough to prove movement,
-// rooms, and even WebRTC (loopback) offline. Swappable for Supabase behind the
+// huddles, and even WebRTC (loopback) offline. Swappable for Supabase behind the
 // RealtimeBackend interface.
 
 import type { Coord, Player, PlayerId } from '../core/types'

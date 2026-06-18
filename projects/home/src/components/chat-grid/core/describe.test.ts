@@ -17,7 +17,7 @@ describe('describeCell', () => {
 
   it('defaults audio tiles to the enable-audio hint', () => {
     const d = describeCell(at({ audio: true }))
-    expect(d?.title).toContain('Audio')
+    expect(d?.title).toContain('Huddle')
     expect(d?.body).toMatch(/enable audio/i)
   })
 

@@ -51,8 +51,8 @@ export interface GridConfig {
   /** only "special" cells need listing; every other coord is implicit empty floor */
   cells: Cell[]
   spawn?: Coord
-  /** max cells allowed in one audio room (mesh safety). See validate.ts default. */
-  maxRoomCells?: number
+  /** max cells allowed in one huddle (mesh safety). See validate.ts default. */
+  maxHuddleCells?: number
 }
 
 /** Derived, lookup-friendly grid built from a GridConfig. */
@@ -79,5 +79,5 @@ export interface Player {
   statusAt?: number
 }
 
-/** Connected-component index from the flood fill. Coords with no audio room are absent. */
-export type RoomId = number
+/** Connected-component index from the flood fill. Coords with no huddle are absent. */
+export type HuddleId = number

@@ -112,12 +112,12 @@ export const makeRenderOverlay = (deps: OverlayDeps) => {
         />
       </div>
       <div class="cg-field">
-        <label>Max room cells</label>
+        <label>Max huddle cells</label>
         <input
           type="number"
           min="1"
-          .value=${String(c.maxRoomCells ?? 6)}
-          @input=${(e: Event) => set({ maxRoomCells: num(e) || 1 })}
+          .value=${String(c.maxHuddleCells ?? 6)}
+          @input=${(e: Event) => set({ maxHuddleCells: num(e) || 1 })}
         />
       </div>
       <p class="cg-modal-hint">Shrinking the grid drops any cells outside the new bounds.</p>

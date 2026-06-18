@@ -1,13 +1,13 @@
 // One machine per remote peer. Models the high-level connection lifecycle so the
-// shell can connect and tear down cleanly under rapid room churn (walking in and
-// out of audio rooms). The shell owns the actual RTCPeerConnection; this just
+// shell can connect and tear down cleanly under rapid huddle churn (walking in and
+// out of huddles). The shell owns the actual RTCPeerConnection; this just
 // decides WHEN to open or close one, and emits those as effects.
 
 export type PeerState = 'idle' | 'connecting' | 'connected' | 'closing'
 
 export type PeerEvent =
-  | 'wanted' // peer is in my audio room — we should be connected
-  | 'unwanted' // peer left my room (or I left) — we should not be
+  | 'wanted' // peer is in my huddle — we should be connected
+  | 'unwanted' // peer left my huddle (or I left) — we should not be
   | 'established' // the RTCPeerConnection reached "connected"
   | 'closed' // the RTCPeerConnection fully closed or failed
 

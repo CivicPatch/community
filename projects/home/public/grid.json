@@ -2,7 +2,7 @@
   "columns": 24,
   "rows": 18,
   "spawn": { "col": 0, "row": 0 },
-  "maxRoomCells": 7,
+  "maxHuddleCells": 7,
   "cells": [
     { "coord": { "col": 0, "row": 0 }, "char": "🚪", "description": { "title": "Welcome", "body": "The front door. WASD to move around, click a tile to walk there." } },
 

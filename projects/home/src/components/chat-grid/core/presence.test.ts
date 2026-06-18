@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { BUBBLE_MS, bubbleVisible, diffPresence, rankRoster } from './presence'
-import type { Player, RoomId } from './types'
+import type { Player, HuddleId } from './types'
 
 const player = (id: string, col: number, row: number, name = id): Player => ({
   id,
@@ -29,29 +29,29 @@ describe('bubbleVisible', () => {
 })
 
 describe('rankRoster', () => {
-  // rooms map keyed by `${col},${row}` -> room id; here room 0 = {0,0},{1,0}
-  const rooms = new Map<string, RoomId>([
+  // huddles map keyed by `${col},${row}` -> huddle id; here huddle 0 = {0,0},{1,0}
+  const huddles = new Map<string, HuddleId>([
     ['0,0', 0],
     ['1,0', 0],
   ])
 
-  it('puts everyone in the grid bucket when I am not in a room', () => {
+  it('puts everyone in the grid bucket when I am not in a huddle', () => {
     const others = [player('a', 0, 0), player('b', 5, 5)]
-    const { blob, grid } = rankRoster(others, rooms, { col: 9, row: 9 })
-    expect(blob).toEqual([])
+    const { huddle, grid } = rankRoster(others, huddles, { col: 9, row: 9 })
+    expect(huddle).toEqual([])
     expect(grid.map((p) => p.id).sort()).toEqual(['a', 'b'])
   })
 
-  it('promotes others sharing my audio room into the blob', () => {
+  it('promotes others sharing my huddle into the huddle', () => {
     const others = [player('roommate', 1, 0), player('elsewhere', 5, 5)]
-    const { blob, grid } = rankRoster(others, rooms, { col: 0, row: 0 })
-    expect(blob.map((p) => p.id)).toEqual(['roommate'])
+    const { huddle, grid } = rankRoster(others, huddles, { col: 0, row: 0 })
+    expect(huddle.map((p) => p.id)).toEqual(['roommate'])
     expect(grid.map((p) => p.id)).toEqual(['elsewhere'])
   })
 
   it('sorts each bucket by distance from me, then name', () => {
     const others = [player('far', 8, 0), player('near', 3, 0), player('mid', 5, 0)]
-    const { grid } = rankRoster(others, rooms, { col: 0, row: 0 })
+    const { grid } = rankRoster(others, huddles, { col: 0, row: 0 })
     expect(grid.map((p) => p.id)).toEqual(['near', 'mid', 'far'])
   })
 })

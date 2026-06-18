@@ -19,7 +19,7 @@ export const isMeaningfulCell = (cell: Cell): boolean =>
 /** Update grid dimensions/spawn/cap, pruning cells that fall out of the new bounds. */
 export const setGridMeta = (
   config: GridConfig,
-  patch: Partial<Pick<GridConfig, 'columns' | 'rows' | 'spawn' | 'maxRoomCells'>>,
+  patch: Partial<Pick<GridConfig, 'columns' | 'rows' | 'spawn' | 'maxHuddleCells'>>,
 ): GridConfig => {
   const next: GridConfig = { ...config, ...patch }
   next.columns = Math.max(1, Math.floor(next.columns))
