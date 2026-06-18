@@ -5,13 +5,14 @@
 // (carried across room switches) and are released here on unmount.
 
 import { useState, useRef, useEffect } from 'haunted'
+import { useOnChange } from './use-reconnect'
 import type { VoiceState } from '../shell/realtime'
 import type { Session } from '../shell/session'
 import { createMeter } from '../shell/meter'
 import { gateTransition, initialGate } from '../core/fsm/audio-gate'
 import type { AudioGateEvent, AudioGateState } from '../core/fsm/audio-gate'
 
-export const useAudioControls = (session: Session) => {
+export const useAudioControls = (session: Session, reconnectNonce: number) => {
   const { me, meId, backendRef, meshRef, micRef, meterRef } = session
   const [gate, setGate] = useState<AudioGateState>(initialGate)
   const [muted, setMuted] = useState(false)
@@ -77,6 +78,14 @@ export const useAudioControls = (session: Session) => {
     },
     [],
   )
+
+  // A PiP pop moves the host across documents, which runs the unmount cleanup above and
+  // releases the mic. If audio was on, silently re-acquire it (permission persists, so no
+  // prompt) so voice survives the move — both requestMic and the connection's mesh-build
+  // wire the stream in, so it lands whichever finishes last.
+  useOnChange(() => {
+    if (gateRef.current === 'on') requestMic()
+  }, [reconnectNonce])
 
   return { gate, voices, muted, updateVoice, dispatchGate, toggleMute }
 }

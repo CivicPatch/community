@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import type { Plugin } from 'vite'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -30,5 +30,10 @@ export default defineConfig({
         hangout: 'hangout/index.html',
       },
     },
+  },
+  // Unit tests are *.test.ts under src/. The Playwright e2e specs (tools/browser/*.spec.ts)
+  // run separately via `npm run test:e2e`, so keep vitest from collecting them.
+  test: {
+    include: ['src/**/*.test.ts'],
   },
 })
