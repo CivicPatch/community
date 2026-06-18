@@ -172,10 +172,8 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
   })
 
   // Voice/mic + audio-gate FSM (see hooks/use-audio-controls.ts).
-  const { gate, voices, muted, updateVoice, dispatchGate, toggleMute } = useAudioControls(
-    session,
-    reconnectNonce,
-  )
+  const { gate, voices, muted, micStream, updateVoice, dispatchGate, toggleMute } =
+    useAudioControls(session, reconnectNonce)
 
   // Adopt a config and rebuild everything derived from it (used on load and on edits).
   const applyConfig = (c: RoomConfig) => {
@@ -196,7 +194,7 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
   useMeshRouting(meshRef, { gate, myCoord, others, huddles, blockedPeers })
 
   // Transmit the mic only while in an huddle and unmuted (see hooks/use-mic-gate.ts).
-  useMicGate(micRef, { myCoord, huddles, gate, muted })
+  useMicGate({ micStream, myCoord, huddles, gate, muted })
 
   // Walker-only music, tuned by your tile (see hooks/use-radio.ts).
   useRadio(room, myCoord)
@@ -416,17 +414,29 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
             >
               🎙️ ${muted ? 'Unmute' : 'Mute'}
             </button>`
-          : html`<button
-              class="cr-btn"
-              ?disabled=${gate === 'requesting'}
-              @click=${() => dispatchGate('enable')}
-            >
-              ${gate === 'requesting'
-                ? 'Requesting mic…'
-                : gate === 'denied'
-                  ? 'Mic blocked — retry'
-                  : '🔊 Enable audio'}
-            </button>`}
+          : pip.popped
+            ? // Turning the mic ON must happen in the main window: the permission prompt
+              // only completes in the focused, active document, not the popped-out one.
+              // Once it's on, talking/muting work here in the corner — so this is about
+              // enabling, not talking. Clicking docks back so you can enable it there.
+              html`<button
+                class="cr-btn"
+                title="Turn your mic on in the main window — once it's on, you can talk here in the pop-out"
+                @click=${pip.popIn}
+              >
+                🎙️ Dock back to enable mic
+              </button>`
+            : html`<button
+                class="cr-btn"
+                ?disabled=${gate === 'requesting'}
+                @click=${() => dispatchGate('enable')}
+              >
+                ${gate === 'requesting'
+                  ? 'Requesting mic…'
+                  : gate === 'denied'
+                    ? 'Mic blocked — retry'
+                    : '🎙️ Enable mic'}
+              </button>`}
         ${pip.supported
           ? html`<button
               class="cr-btn"

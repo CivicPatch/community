@@ -17,6 +17,12 @@ export const useAudioControls = (session: Session, reconnectNonce: number) => {
   const [gate, setGate] = useState<AudioGateState>(initialGate)
   const [muted, setMuted] = useState(false)
   const [voices, setVoices] = useState<Record<string, VoiceState>>({})
+  // The current mic stream, mirrored as state (session.micRef is the mutable handle). The
+  // mic gate depends on it, so when a new stream is acquired — initial enable, or a
+  // re-acquire after a PiP pop released the old one — the gate re-applies `enabled` to the
+  // fresh track, which requestMic starts disabled. Without this it stays dead until you
+  // toggle mute (which is what forced the gate to re-run before).
+  const [micStream, setMicStream] = useState<MediaStream | null>(null)
   const voicesRef = useRef<Record<string, VoiceState>>({})
   const mutedRef = useRef(false)
   const gateRef = useRef<AudioGateState>(initialGate)
@@ -35,6 +41,7 @@ export const useAudioControls = (session: Session, reconnectNonce: number) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       micRef.current = stream
+      setMicStream(stream) // new stream object → the mic gate re-runs and re-applies enabled
       stream.getAudioTracks().forEach((t) => (t.enabled = false)) // the gate enables it when in a huddle
       meshRef.current?.setMic(stream)
       if (me.current) me.current.audioEnabled = true
@@ -87,5 +94,5 @@ export const useAudioControls = (session: Session, reconnectNonce: number) => {
     if (gateRef.current === 'on') requestMic()
   }, [reconnectNonce])
 
-  return { gate, voices, muted, updateVoice, dispatchGate, toggleMute }
+  return { gate, voices, muted, micStream, updateVoice, dispatchGate, toggleMute }
 }
