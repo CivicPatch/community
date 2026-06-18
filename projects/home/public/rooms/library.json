@@ -1,0 +1,55 @@
+{
+  "columns": 16,
+  "rows": 12,
+  "spawn": { "col": 1, "row": 2 },
+  "maxHuddleCells": 7,
+  "cells": [
+    { "coord": { "col": 4, "row": 0 }, "color": "#2a241e", "char": "L" },
+    { "coord": { "col": 5, "row": 0 }, "color": "#2a241e", "char": "I" },
+    { "coord": { "col": 6, "row": 0 }, "color": "#2a241e", "char": "B" },
+    { "coord": { "col": 7, "row": 0 }, "color": "#2a241e", "char": "R" },
+    { "coord": { "col": 8, "row": 0 }, "color": "#2a241e", "char": "A" },
+    { "coord": { "col": 9, "row": 0 }, "color": "#2a241e", "char": "R" },
+    { "coord": { "col": 10, "row": 0 }, "color": "#2a241e", "char": "Y" },
+
+    { "coord": { "col": 0, "row": 2 }, "color": "#3a2f25", "door": { "to": "/rooms/home.json", "spawn": { "col": 6, "row": 5 }, "label": "Home" }, "description": { "title": "🚪 Home", "body": "Step back to the Home room." } },
+    { "coord": { "col": 1, "row": 4 }, "char": "🪴" },
+
+    { "coord": { "col": 2, "row": 1 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+    { "coord": { "col": 3, "row": 1 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+    { "coord": { "col": 4, "row": 1 }, "walkable": false, "color": "#3a2f25" },
+    { "coord": { "col": 11, "row": 1 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+    { "coord": { "col": 12, "row": 1 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+
+    { "coord": { "col": 15, "row": 3 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+    { "coord": { "col": 15, "row": 4 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+    { "coord": { "col": 15, "row": 5 }, "walkable": false, "color": "#3a2f25" },
+    { "coord": { "col": 15, "row": 6 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+    { "coord": { "col": 15, "row": 7 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+
+    { "coord": { "col": 0, "row": 9 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+    { "coord": { "col": 0, "row": 10 }, "walkable": false, "color": "#3a2f25", "char": "📚" },
+
+    { "coord": { "col": 6, "row": 4 }, "color": "#5a3d3a" },
+    { "coord": { "col": 7, "row": 4 }, "color": "#5a3d3a" },
+    { "coord": { "col": 8, "row": 4 }, "color": "#5a3d3a" },
+    { "coord": { "col": 9, "row": 4 }, "color": "#5a3d3a" },
+    { "coord": { "col": 6, "row": 5 }, "color": "#5a3d3a" },
+    { "coord": { "col": 9, "row": 5 }, "color": "#5a3d3a" },
+    { "coord": { "col": 6, "row": 6 }, "color": "#5a3d3a" },
+    { "coord": { "col": 9, "row": 6 }, "color": "#5a3d3a" },
+    { "coord": { "col": 6, "row": 7 }, "color": "#5a3d3a" },
+    { "coord": { "col": 7, "row": 7 }, "color": "#5a3d3a" },
+    { "coord": { "col": 8, "row": 7 }, "color": "#5a3d3a" },
+    { "coord": { "col": 9, "row": 7 }, "color": "#5a3d3a" },
+
+    { "coord": { "col": 7, "row": 5 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 8, "row": 5 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 7, "row": 6 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 8, "row": 6 }, "audio": true, "color": "#4a3e30" },
+
+    { "coord": { "col": 13, "row": 9 }, "link": { "url": "https://civictech.guide", "label": "📖" }, "description": { "title": "Reading list", "body": "Civic tech reading.", "links": [{ "url": "https://civictech.guide", "label": "Open the guide" }] } },
+
+    { "coord": { "col": 14, "row": 10 }, "char": "🪴" }
+  ]
+}

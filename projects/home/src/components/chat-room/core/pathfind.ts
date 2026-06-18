@@ -1,12 +1,15 @@
 // Click-to-travel: BFS shortest path avoiding walls and occupied cells.
 
 import type { Coord, Room } from './types'
-import { coordKey, isWalkable, neighbors } from './room'
+import { coordKey, doorAt, isWalkable, neighbors } from './room'
 
 /**
  * Shortest path from `from` to `to`, skipping non-walkable and occupied cells.
  * Returns the steps AFTER `from` (last element is `to`), [] if already there,
  * or null if `to` is unreachable / not enterable.
+ *
+ * Doors are reachable as a DESTINATION but never traversed: a route never passes
+ * THROUGH a door (it would whisk you to another room mid-walk), it only ends on one.
  */
 export const findPath = (
   room: Room,
@@ -29,6 +32,7 @@ export const findPath = (
       if (prev.has(nk) || !isWalkable(room, n) || occupied.has(nk)) continue
       prev.set(nk, cur)
       if (nk === toKey) return reconstruct(prev, to)
+      if (doorAt(room, n)) continue // reachable as a target, but don't route through it
       queue.push(n)
     }
   }

@@ -1,10 +1,13 @@
-// The connection lifecycle, run once per config-url: load the room config, build
-// the room, create the realtime backend + WebRTC mesh + notification pinger, wire
-// their subscriptions into component state, and tear it all down on unmount.
+// The connection lifecycle, run per ROOM: load the room config, build the room,
+// create the realtime backend + WebRTC mesh + notification pinger (all scoped to
+// that room's channel), wire their subscriptions into component state, and tear it
+// down when the room changes or the component unmounts.
 //
-// Backend and mesh are created together (the mesh needs the backend) under one
-// `cancelled` guard and one cleanup — kept atomic on purpose. join() is deferred to
-// the pre-join gate's submit, so we don't announce presence until a name is picked.
+// Re-runs on every room switch (the door feature). What's room-scoped — backend,
+// mesh, pinger, roster/streams/peers — resets each switch; what's YOU — mic, meter,
+// identity, gate — persists and is carried into the new room (see use-audio-controls
+// for the mic/meter release on unmount). join() is deferred to the pre-join gate on
+// first load, then re-issued automatically on each subsequent room switch.
 
 import { useEffect } from 'haunted'
 import type { Coord, RoomConfig, Room, Player } from '../core/types'
@@ -35,6 +38,13 @@ const pickSpawn = (room: Room, config: RoomConfig): Coord => {
   return { col: 0, row: 0 }
 }
 
+// One presence/audio channel per room, derived from its config URL so each room is
+// its own isolated space: "/rooms/library.json" -> "chat-room:library".
+const roomChannel = (url: string): string => {
+  const base = url.split('/').pop()?.replace(/\.json$/, '') || 'home'
+  return `chat-room:${base}`
+}
+
 export interface GridConnectionDeps {
   meId: { current: string }
   meName: { current: string }
@@ -45,6 +55,10 @@ export interface GridConnectionDeps {
   meterRef: { current: Meter | null }
   micRef: { current: MediaStream | null }
   streamsRef: { current: Record<string, MediaStream | null> }
+  /** Where to spawn on arrival when a door set a target; consumed (cleared) on use. */
+  arrivalSpawnRef: { current: Coord | null }
+  /** True once the player has picked a name and joined — gates auto-join on a switch. */
+  joinedRef: { current: boolean }
   applyConfig: (c: RoomConfig) => void
   cancelTravel: () => void
   updateVoice: (id: string, state: VoiceState) => void
@@ -57,50 +71,69 @@ export interface GridConnectionDeps {
   setErrors: (e: string[]) => void
 }
 
-export const useRoomConnection = (configUrl: string, deps: GridConnectionDeps) => {
+export const useRoomConnection = (roomUrl: string, deps: GridConnectionDeps) => {
   useEffect(() => {
     let cancelled = false
+    const unsubs: Array<() => void> = []
+
+    // Entering a room: clear the previous room's roster/streams/peers so nothing
+    // bleeds across the threshold.
+    deps.streamsRef.current = {}
+    deps.setOthers([])
+    deps.setStreams({})
+    deps.setPeerStates({})
+
     const setup = async () => {
       try {
-        const loaded = await loadConfig(configUrl)
+        const loaded = await loadConfig(roomUrl)
         if (cancelled) return
-        const g = buildRoom(loaded)
-        const spawn = pickSpawn(g, loaded)
-        const player: Player = { id: deps.meId.current, name: deps.meName.current, coord: spawn }
-        deps.me.current = player
+        const room = buildRoom(loaded)
+        // Land on the door's target cell if it set one, else the room's own spawn.
+        const arrival = deps.arrivalSpawnRef.current
+        deps.arrivalSpawnRef.current = null
+        const spawn = arrival && isWalkable(room, arrival) ? arrival : pickSpawn(room, loaded)
+
+        // Reuse the player across rooms so name/avatar/audio/status carry over;
+        // create it on first load. Same object identity (other code holds the ref).
+        if (deps.me.current) deps.me.current.coord = spawn
+        else deps.me.current = { id: deps.meId.current, name: deps.meName.current, coord: spawn }
+        const player = deps.me.current
+
         deps.applyConfig(loaded)
         deps.setMyCoord(spawn)
-        const savedDraft = loadDraft()
-        if (savedDraft && !cancelled) deps.setDraft(savedDraft) // offer to resume
+        if (!deps.joinedRef.current) {
+          const savedDraft = loadDraft()
+          if (savedDraft && !cancelled) deps.setDraft(savedDraft) // offer to resume (first load only)
+        }
 
-        const backend = createBackend()
+        const backend = createBackend(roomChannel(roomUrl))
         deps.backendRef.current = backend
         deps.pingerRef.current = createPinger()
-        backend.onPlayers((o) => {
-          if (!cancelled) deps.setOthers(o)
-        })
-        backend.onStatus((s) => {
-          if (!cancelled) deps.setStatus(s)
-        })
-        backend.onVoice((from, state) => {
-          if (!cancelled) deps.updateVoice(from, state)
-        })
+        unsubs.push(backend.onPlayers((o) => !cancelled && deps.setOthers(o)))
+        unsubs.push(backend.onStatus((s) => !cancelled && deps.setStatus(s)))
+        unsubs.push(backend.onVoice((from, state) => !cancelled && deps.updateVoice(from, state)))
 
         const mesh = createMeshAudio(player.id, backend)
         deps.meshRef.current = mesh
-        mesh.onRemoteStream((id, s) => {
-          if (cancelled) return
-          if (s) deps.streamsRef.current = { ...deps.streamsRef.current, [id]: s }
-          else {
-            const next = { ...deps.streamsRef.current }
-            delete next[id]
-            deps.streamsRef.current = next
-          }
-          deps.setStreams(deps.streamsRef.current)
-        })
-        mesh.onPeerStates((states) => {
-          if (!cancelled) deps.setPeerStates(states)
-        })
+        // Carry an already-granted mic into the new room's mesh (no re-prompt).
+        if (deps.micRef.current) mesh.setMic(deps.micRef.current)
+        unsubs.push(
+          mesh.onRemoteStream((id, s) => {
+            if (cancelled) return
+            if (s) deps.streamsRef.current = { ...deps.streamsRef.current, [id]: s }
+            else {
+              const next = { ...deps.streamsRef.current }
+              delete next[id]
+              deps.streamsRef.current = next
+            }
+            deps.setStreams(deps.streamsRef.current)
+          }),
+        )
+        unsubs.push(mesh.onPeerStates((states) => !cancelled && deps.setPeerStates(states)))
+
+        // Already named + joined? This is a room switch — announce presence in the
+        // new channel now (first load waits for the pre-join gate's submitJoin).
+        if (deps.joinedRef.current) backend.join(player)
       } catch (err) {
         if (!cancelled) deps.setErrors([String(err)])
       }
@@ -108,17 +141,16 @@ export const useRoomConnection = (configUrl: string, deps: GridConnectionDeps) =
     setup()
     return () => {
       cancelled = true
+      for (const u of unsubs) u()
       deps.cancelTravel()
-      deps.meterRef.current?.stop()
-      deps.meterRef.current = null
       deps.pingerRef.current?.close()
       deps.pingerRef.current = null
       deps.meshRef.current?.close()
       deps.meshRef.current = null
-      deps.micRef.current?.getTracks().forEach((t) => t.stop())
-      deps.micRef.current = null
       deps.backendRef.current?.leave()
       deps.backendRef.current = null
+      // mic + meter intentionally persist across room switches (carried into the
+      // next room's mesh); they're released on unmount by use-audio-controls.
     }
-  }, [configUrl])
+  }, [roomUrl])
 }

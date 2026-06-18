@@ -19,6 +19,22 @@ describe('findPath', () => {
     expect(findPath(open, { col: 1, row: 1 }, { col: 1, row: 1 }, new Set())).toEqual([])
   })
 
+  it('reaches a door as a destination but never routes through one', () => {
+    const room = buildRoom({
+      columns: 3,
+      rows: 3,
+      cells: [{ coord: { col: 1, row: 0 }, door: { to: '/rooms/x.json' } }],
+    } satisfies RoomConfig)
+    // you can walk ONTO the door
+    const toDoor = findPath(room, { col: 0, row: 0 }, { col: 1, row: 0 }, new Set())
+    expect(toDoor).not.toBeNull()
+    expect(last(toDoor!)).toEqual({ col: 1, row: 0 })
+    // but a trip past it routes around, never through (no mid-walk teleport)
+    const past = findPath(room, { col: 0, row: 0 }, { col: 2, row: 0 }, new Set())
+    expect(past).not.toBeNull()
+    expect(has(past!, { col: 1, row: 0 })).toBe(false)
+  })
+
   it('routes around a wall', () => {
     // middle column walled off for the top two rows, gap at the bottom
     const room = buildRoom({

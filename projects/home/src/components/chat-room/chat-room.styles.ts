@@ -661,17 +661,24 @@ export const STYLE = html`
         0 0 0 3px var(--cr-enabled),
         0 0 14px 5px color-mix(in srgb, var(--cr-enabled), transparent 25%);
     }
-    /* wiggle (audio-reactive, amplitude = --shake): room-wide, anyone talking */
+    /* wiggle (audio-reactive, amplitude = --shake 0..3): room-wide "who's talking"
+       signal. A peppy bounce off the feet (bottom pivot) with squash/stretch — hop
+       height tracks the voice bucket, and a baseline hop keeps quiet talkers legible.
+       Reads "talking" across the grid; reads cute up close. */
     .cr-token.cr-wiggling .cr-token-avatar {
-      animation: cr-shake 0.16s linear infinite;
+      transform-origin: bottom center;
+      animation: cr-bobble 0.3s ease-in-out infinite;
     }
-    @keyframes cr-shake {
+    @keyframes cr-bobble {
+      /* grounded: slight lean (no scale — keeps the icon undistorted) */
       0%,
       100% {
-        transform: translateX(calc(var(--shake, 0) * -1px));
+        transform: translateY(0) rotate(calc(var(--shake, 0) * 1.5deg));
       }
-      50% {
-        transform: translateX(calc(var(--shake, 0) * 1px));
+      /* peak: small hop, ~1px baseline + a bit more with volume */
+      45% {
+        transform: translateY(calc(-1px - var(--shake, 0) * 1px))
+          rotate(calc(var(--shake, 0) * -1.5deg));
       }
     }
     @media (prefers-reduced-motion: reduce) {

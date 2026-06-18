@@ -47,6 +47,8 @@
     { "coord": { "col": 3, "row": 4 }, "color": "#2a241e", "char": "L" },
     { "coord": { "col": 4, "row": 4 }, "color": "#2a241e", "char": "F" },
 
+    { "coord": { "col": 5, "row": 5 }, "color": "#3a2f25", "door": { "to": "/rooms/library.json", "spawn": { "col": 1, "row": 2 }, "label": "Library" }, "description": { "title": "🚪 Library", "body": "Step through to the Library — books & a quiet reading huddle." } },
+
     { "coord": { "col": 10, "row": 8 }, "audio": true, "color": "#4a3e30" },
     { "coord": { "col": 11, "row": 8 }, "audio": true, "color": "#4a3e30" },
     { "coord": { "col": 12, "row": 8 }, "audio": true, "color": "#4a3e30" },
