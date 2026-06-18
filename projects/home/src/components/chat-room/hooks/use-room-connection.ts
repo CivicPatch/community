@@ -45,7 +45,7 @@ const roomChannel = (url: string): string => {
   return `chat-room:${base}`
 }
 
-export interface GridConnectionDeps {
+export interface RoomConnectionDeps {
   meId: { current: string }
   meName: { current: string }
   me: { current: Player | null }
@@ -71,7 +71,7 @@ export interface GridConnectionDeps {
   setErrors: (e: string[]) => void
 }
 
-export const useRoomConnection = (roomUrl: string, deps: GridConnectionDeps) => {
+export const useRoomConnection = (roomUrl: string, deps: RoomConnectionDeps) => {
   useEffect(() => {
     let cancelled = false
     const unsubs: Array<() => void> = []

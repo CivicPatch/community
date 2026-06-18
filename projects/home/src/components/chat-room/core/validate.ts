@@ -7,7 +7,7 @@ import { buildHuddles } from './huddles'
 
 export const DEFAULT_MAX_HUDDLE_CELLS = 6
 
-export const validateGrid = (config: RoomConfig): string[] => {
+export const validateRoom = (config: RoomConfig): string[] => {
   const errors: string[] = []
 
   if (config.columns <= 0 || config.rows <= 0)
