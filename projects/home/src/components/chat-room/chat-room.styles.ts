@@ -79,14 +79,71 @@ export const STYLE = html`
       margin: 0;
       color: var(--cr-dim);
     }
+    /* Stable play-area viewport. Fixed height so the status below never jumps when
+       the room (and so the grid) changes size; the grid centers inside when smaller,
+       and scrolls when larger — e.g. a wide room on mobile where cells bottom out at
+       their minimum. Edge arrows (siblings) hint at the hidden parts. */
+    .cr-board-wrap {
+      position: relative;
+      max-width: 100%;
+    }
+    .cr-board {
+      width: fit-content;
+      max-width: 100%;
+      height: min(74dvh, 760px);
+      overflow: auto;
+      overscroll-behavior: contain;
+      display: grid;
+      place-content: safe center; /* center when it fits, scroll-from-start when it doesn't */
+    }
+    /* clickable pan affordances — hidden (and unfocusable) unless that edge has more
+       room to show; clicking pans the viewport (see pan() in chat-room.ts). */
+    .cr-arrow {
+      position: absolute;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: var(--cr-surface);
+      color: var(--cr-text);
+      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+      font-size: 13px;
+      cursor: pointer;
+      opacity: 0;
+      visibility: hidden; /* removes it from the tab order while hidden */
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+    }
+    .cr-arrow-up { top: 6px; left: 50%; transform: translateX(-50%); }
+    .cr-arrow-down { bottom: 6px; left: 50%; transform: translateX(-50%); }
+    .cr-arrow-left { left: 6px; top: 50%; transform: translateY(-50%); }
+    .cr-arrow-right { right: 6px; top: 50%; transform: translateY(-50%); }
+    .cr-board[data-up] ~ .cr-arrow-up,
+    .cr-board[data-down] ~ .cr-arrow-down,
+    .cr-board[data-left] ~ .cr-arrow-left,
+    .cr-board[data-right] ~ .cr-arrow-right {
+      opacity: 0.85;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .cr-arrow:hover,
+    .cr-arrow:focus-visible {
+      opacity: 1;
+      outline: none;
+      box-shadow: 0 0 0 2px var(--cr-accent), 0 1px 5px rgba(0, 0, 0, 0.4);
+    }
     .cr-grid {
-      /* cells shrink to fit the component width on small screens, capped at 40px.
-         tokens position via --cell too, so the avatar overlay scales in lockstep —
-         no scrolling, no overlay misalignment. */
-      --cell: min(40px, calc((100cqw - 8px) / var(--cols)));
+      /* cells fill the width but never below a tappable minimum (mobile) nor above
+         40px; tokens position via --cell too, so the avatar overlay scales in
+         lockstep. Below the minimum the grid overflows and the board scrolls. */
+      --cell: clamp(28px, calc((100cqw - 8px) / var(--cols)), 40px);
       position: relative;
       display: inline-block;
-      max-width: 100%;
       padding: 2px;
       background: var(--cr-surface);
       border: 1px solid var(--cr-line);

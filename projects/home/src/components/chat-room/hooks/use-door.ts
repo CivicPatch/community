@@ -12,8 +12,8 @@ export interface DoorDeps {
   myCoord: Coord | null
   mapMode: boolean
   roomUrl: string
-  arrivalSpawnRef: { current: Coord | null }
-  switchRoom: (url: string) => void
+  /** Change rooms, arriving at `spawn` if given (see switchRoom in chat-room.ts). */
+  switchRoom: (url: string, spawn?: Coord) => void
 }
 
 export const useDoor = (deps: DoorDeps) => {
@@ -21,7 +21,6 @@ export const useDoor = (deps: DoorDeps) => {
     if (deps.mapMode || !deps.room || !deps.myCoord) return
     const door = doorAt(deps.room, deps.myCoord)
     if (!door || door.to === deps.roomUrl) return // no door, or already heading there
-    deps.arrivalSpawnRef.current = door.spawn ?? null
-    deps.switchRoom(door.to)
+    deps.switchRoom(door.to, door.spawn)
   }, [deps.myCoord, deps.room, deps.mapMode])
 }

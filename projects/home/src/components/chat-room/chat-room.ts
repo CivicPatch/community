@@ -1,9 +1,10 @@
 // Composition root (imperative shell): renders the room, wires input to the pure
 // core, and syncs presence through the swappable realtime backend.
-// Phase 0: movement + collision + click-to-travel + huddle highlight. No audio yet.
+// rooms linked by doors, proximity-voice huddles, click-to-travel, and a map editor.
 
 import { html } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
+import { ref } from 'lit/directives/ref.js'
 import { component, useRef, useState } from 'haunted'
 import type { Cell, Coord, Room, RoomConfig, Player } from './core/types'
 import { buildRoom, cellAt } from './core/room'
@@ -17,7 +18,7 @@ import type { Pinger } from './shell/ping'
 import { bubbleVisible, rankRoster } from './core/presence'
 import { buildHuddles, peersInHuddle, huddleOf } from './core/huddles'
 import { describeCell } from './core/describe'
-import { validateGrid } from './core/validate'
+import { validateRoom } from './core/validate'
 import { readableInk } from './core/color'
 import { renderCellGlyph } from './render/cell'
 import { popover } from './render/popover'
@@ -35,6 +36,7 @@ import { useMeshRouting } from './hooks/use-mesh-routing'
 import { useMicGate } from './hooks/use-mic-gate'
 import { useRoomConnection } from './hooks/use-room-connection'
 import { useDoor } from './hooks/use-door'
+import { useViewport } from './hooks/use-viewport'
 import { useMovement } from './hooks/use-movement'
 import { useAudioControls } from './hooks/use-audio-controls'
 import { STYLE } from './chat-room.styles'
@@ -63,11 +65,11 @@ const formatAgo = (ms: number): string => {
 }
 
 
-interface ChatGridProps {
+interface ChatRoomProps {
   'config-url'?: string
 }
 
-const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProps) => {
+const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProps) => {
   const [room, setRoom] = useState<Room | null>(null)
   // the active room's config URL — door entry swaps this, re-running the connection
   const [roomUrl, setRoomUrl] = useState(configUrl)
@@ -174,7 +176,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProp
     setConfig(c)
     setRoom(g)
     setHuddles(buildHuddles(g))
-    setErrors(validateGrid(c))
+    setErrors(validateRoom(c))
   }
 
   // an edit: rebuild AND persist a timestamped draft to localStorage
@@ -192,8 +194,21 @@ const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProp
   // Walker-only music, tuned by your tile (see hooks/use-radio.ts).
   useRadio(room, myCoord)
 
+  // The single room-change entry point. Records where to arrive, then swaps the room
+  // URL (which re-runs the connection effect). Keeping BOTH writes here is the whole
+  // switch contract in one spot — callers (doors) don't touch arrivalSpawnRef.
+  const switchRoom = (url: string, spawn?: Coord) => {
+    arrivalSpawnRef.current = spawn ?? null
+    setRoomUrl(url)
+  }
+
   // Doors: landing on a door cell switches rooms (see hooks/use-door.ts).
-  useDoor({ room, myCoord, mapMode, roomUrl, arrivalSpawnRef, switchRoom: setRoomUrl })
+  useDoor({ room, myCoord, mapMode, roomUrl, switchRoom })
+
+  // The grid's scroll viewport — edge arrows, camera-follow, click-to-pan — all from
+  // pure geometry in core/camera (see hooks/use-viewport.ts). setBoard is the element
+  // ref; pan(dx,dy) is wired to the arrow buttons.
+  const { setBoard, pan } = useViewport(room, myCoord)
 
   // Proactively leave on tab/window close — effect cleanup doesn't run then.
   usePageHideLeave(backendRef)
@@ -502,6 +517,8 @@ const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProp
             </button>`}
       </div>
       <div class="cr-stage">
+        <div class="cr-board-wrap">
+        <div class="cr-board" ${ref(setBoard)}>
         <div
           class="cr-grid"
           tabindex="0"
@@ -544,6 +561,12 @@ const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProp
                 )
               : ''}
           </div>
+        </div>
+        </div>
+        <button class="cr-arrow cr-arrow-up" aria-label="Pan up" @click=${() => pan(0, -1)}>▲</button>
+        <button class="cr-arrow cr-arrow-down" aria-label="Pan down" @click=${() => pan(0, 1)}>▼</button>
+        <button class="cr-arrow cr-arrow-left" aria-label="Pan left" @click=${() => pan(-1, 0)}>◀</button>
+        <button class="cr-arrow cr-arrow-right" aria-label="Pan right" @click=${() => pan(1, 0)}>▶</button>
         </div>
         <div class="cr-side">
         ${joined
@@ -672,5 +695,5 @@ const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProp
 customElements.define(
   'chat-room',
   // shadow DOM (Haunted's default) scopes the styles above and prevents flicker
-  component(ChatGrid, { observedAttributes: ['config-url'], useShadowDOM: true }),
+  component(ChatRoom, { observedAttributes: ['config-url'], useShadowDOM: true }),
 )
