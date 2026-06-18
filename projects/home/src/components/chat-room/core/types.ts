@@ -34,6 +34,13 @@ export interface Cell {
    */
   radio?: { url: string; label?: string }
   /**
+   * Door to another room. WALKABLE — landing on it loads room `to` (a RoomConfig
+   * URL, e.g. "/rooms/library.json") and re-spawns you at `spawn` (or that room's
+   * own spawn). `label` names the destination (hover preview / aria). Mutually
+   * exclusive with audio/link/radio — a door is a silent threshold, not a place.
+   */
+  door?: { to: string; spawn?: Coord; label?: string }
+  /**
    * Shown in the side panel when you STAND on this cell. Composable on any cell.
    * A "Google Meet tile" is just an icon + a description whose links include a
    * "Join" url — no special meet behavior needed.

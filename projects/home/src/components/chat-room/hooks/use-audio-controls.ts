@@ -1,9 +1,10 @@
 // Voice/mic controls: the audio-gate FSM (request → granted/denied), mic capture,
 // self-metering, and room-wide speaking/muted broadcast. Owns the gate/voices/muted
 // state and their mirror refs (read inside callbacks). micRef/meterRef are passed in
-// — they're also released by the connection hook's teardown and read by the mic gate.
+// and read by the mic gate + connection hook; they live for the COMPONENT's lifetime
+// (carried across room switches) and are released here on unmount.
 
-import { useState, useRef } from 'haunted'
+import { useState, useRef, useEffect } from 'haunted'
 import type { Player } from '../core/types'
 import type { RealtimeBackend, VoiceState } from '../shell/realtime'
 import type { MeshAudio } from '../shell/webrtc'
@@ -75,6 +76,18 @@ export const useAudioControls = (deps: AudioControlsDeps) => {
     mutedRef.current = next
     broadcastVoice({ speaking: false, bucket: 0, muted: next }) // tell everyone immediately
   }
+
+  // Release the mic + meter on unmount only — they persist across room switches
+  // (the connection hook carries the mic into each new room's mesh).
+  useEffect(
+    () => () => {
+      meterRef.current?.stop()
+      meterRef.current = null
+      micRef.current?.getTracks().forEach((t) => t.stop())
+      micRef.current = null
+    },
+    [],
+  )
 
   return { gate, voices, muted, updateVoice, dispatchGate, toggleMute }
 }

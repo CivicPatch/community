@@ -38,6 +38,12 @@ export const isAudio = (room: Room, c: Coord): boolean => cellAt(room, c)?.audio
 export const radioAt = (room: Room, c: Coord): { url: string; label?: string } | null =>
   cellAt(room, c)?.radio ?? null
 
+/** The door at a coord, or null. Landing here switches rooms (see use-door). */
+export const doorAt = (
+  room: Room,
+  c: Coord,
+): { to: string; spawn?: Coord; label?: string } | null => cellAt(room, c)?.door ?? null
+
 /** 4-directional (orthogonal) in-bounds neighbours — matches WASD movement. */
 export const neighbors = (room: Room, c: Coord): Coord[] => {
   const deltas: Coord[] = [

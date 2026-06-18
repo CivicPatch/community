@@ -25,6 +25,11 @@ export const validateGrid = (config: RoomConfig): string[] => {
       errors.push(`cell ${key}: char must be exactly one character`)
     if (cell.link && !cell.link.url) errors.push(`cell ${key}: link is missing a url`)
     if (cell.radio && !cell.radio.url) errors.push(`cell ${key}: radio is missing a url`)
+    if (cell.door) {
+      if (!cell.door.to) errors.push(`cell ${key}: door is missing a destination (to)`)
+      if (cell.audio || cell.link || cell.radio)
+        errors.push(`cell ${key}: a door can't also be audio/link/radio — it's a silent threshold`)
+    }
   }
 
   if (config.spawn && !inBounds(room, config.spawn))

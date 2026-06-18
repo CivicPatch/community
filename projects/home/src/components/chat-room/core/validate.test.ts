@@ -30,6 +30,20 @@ describe('validateGrid', () => {
     expect(errs.some((e) => e.includes('spawn out of bounds'))).toBe(true)
   })
 
+  it('flags a door with no destination', () => {
+    const errs = validateGrid({ columns: 3, rows: 3, cells: [{ coord: { col: 1, row: 1 }, door: { to: '' } }] })
+    expect(errs.some((e) => e.includes('missing a destination'))).toBe(true)
+  })
+
+  it('flags a door that is also audio/link/radio', () => {
+    const errs = validateGrid({
+      columns: 3,
+      rows: 3,
+      cells: [{ coord: { col: 1, row: 1 }, audio: true, door: { to: '/rooms/x.json' } }],
+    })
+    expect(errs.some((e) => e.includes("can't also be"))).toBe(true)
+  })
+
   it('flags an oversized huddle (default cap 6)', () => {
     const row = Array.from({ length: 7 }, (_, col) => audio(col, 0))
     const errs = validateGrid({ columns: 10, rows: 10, cells: row })

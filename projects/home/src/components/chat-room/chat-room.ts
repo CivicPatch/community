@@ -34,6 +34,7 @@ import { useRadio } from './hooks/use-radio'
 import { useMeshRouting } from './hooks/use-mesh-routing'
 import { useMicGate } from './hooks/use-mic-gate'
 import { useRoomConnection } from './hooks/use-room-connection'
+import { useDoor } from './hooks/use-door'
 import { useMovement } from './hooks/use-movement'
 import { useAudioControls } from './hooks/use-audio-controls'
 import { STYLE } from './chat-room.styles'
@@ -68,6 +69,8 @@ interface ChatGridProps {
 
 const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProps) => {
   const [room, setRoom] = useState<Room | null>(null)
+  // the active room's config URL — door entry swaps this, re-running the connection
+  const [roomUrl, setRoomUrl] = useState(configUrl)
   const [huddles, setHuddles] = useState<Map<string, number>>(new Map())
   const [errors, setErrors] = useState<string[]>([])
   const [others, setOthers] = useState<Player[]>([])
@@ -133,6 +136,8 @@ const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProp
   const pingerRef = useRef<Pinger | null>(null)
   const micRef = useRef<MediaStream | null>(null)
   const streamsRef = useRef<Record<string, MediaStream | null>>({})
+  const arrivalSpawnRef = useRef<Coord | null>(null)
+  const joinedRef = useRef(false)
   const roomRef = useRef<Room | null>(null)
   const othersRef = useRef<Player[]>([])
 
@@ -187,6 +192,9 @@ const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProp
   // Walker-only music, tuned by your tile (see hooks/use-radio.ts).
   useRadio(room, myCoord)
 
+  // Doors: landing on a door cell switches rooms (see hooks/use-door.ts).
+  useDoor({ room, myCoord, mapMode, roomUrl, arrivalSpawnRef, switchRoom: setRoomUrl })
+
   // Proactively leave on tab/window close — effect cleanup doesn't run then.
   usePageHideLeave(backendRef)
 
@@ -213,7 +221,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProp
 
   // Backend + mesh + pinger lifecycle, run once per config-url (see
   // hooks/use-room-connection.ts). Refs/setters are owned here and passed in.
-  useRoomConnection(configUrl, {
+  useRoomConnection(roomUrl, {
     meId,
     meName,
     me,
@@ -223,6 +231,8 @@ const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProp
     meterRef,
     micRef,
     streamsRef,
+    arrivalSpawnRef,
+    joinedRef,
     applyConfig,
     cancelTravel,
     updateVoice,
@@ -246,6 +256,7 @@ const ChatGrid = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatGridProp
     saveIdentity({ name, avatar: avatarDraft })
     pingerRef.current?.resume() // the Join click is our autoplay-unlock gesture
     backendRef.current?.join(me.current)
+    joinedRef.current = true // subsequent room switches auto-join the new channel
     setJoined(true)
   }
 

@@ -26,5 +26,12 @@ export const describeCell = (cell: Cell | undefined): CellDescription | undefine
       title: '🔗 Link',
       body: 'Click this tile to open it in a new tab.',
     }
+  if (cell.door)
+    return {
+      title: cell.door.label ? `🚪 ${cell.door.label}` : '🚪 Door',
+      body: cell.door.label
+        ? `Walk onto this door to head to ${cell.door.label}.`
+        : 'Walk onto this door to head to another room.',
+    }
   return undefined
 }
