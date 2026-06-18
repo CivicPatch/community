@@ -13,10 +13,8 @@ import { useEffect } from 'haunted'
 import type { Coord, RoomConfig, Room, Player } from '../core/types'
 import type { ConnStatus } from '../core/fsm/session'
 import type { PeerState } from '../core/fsm/peer'
-import type { RealtimeBackend, VoiceState } from '../shell/realtime'
-import type { MeshAudio } from '../shell/webrtc'
-import type { Pinger } from '../shell/ping'
-import type { Meter } from '../shell/meter'
+import type { VoiceState } from '../shell/realtime'
+import type { Session } from '../shell/session'
 import type { Draft } from '../shell/draft'
 import { buildRoom, isWalkable } from '../core/room'
 import { createBackend } from '../shell/backend'
@@ -46,15 +44,6 @@ const roomChannel = (url: string): string => {
 }
 
 export interface RoomConnectionDeps {
-  meId: { current: string }
-  meName: { current: string }
-  me: { current: Player | null }
-  backendRef: { current: RealtimeBackend | null }
-  meshRef: { current: MeshAudio | null }
-  pingerRef: { current: Pinger | null }
-  meterRef: { current: Meter | null }
-  micRef: { current: MediaStream | null }
-  streamsRef: { current: Record<string, MediaStream | null> }
   /** Where to spawn on arrival when a door set a target; consumed (cleared) on use. */
   arrivalSpawnRef: { current: Coord | null }
   /** True once the player has picked a name and joined — gates auto-join on a switch. */
@@ -71,14 +60,14 @@ export interface RoomConnectionDeps {
   setErrors: (e: string[]) => void
 }
 
-export const useRoomConnection = (roomUrl: string, deps: RoomConnectionDeps) => {
+export const useRoomConnection = (roomUrl: string, session: Session, deps: RoomConnectionDeps) => {
   useEffect(() => {
     let cancelled = false
     const unsubs: Array<() => void> = []
 
     // Entering a room: clear the previous room's roster/streams/peers so nothing
     // bleeds across the threshold.
-    deps.streamsRef.current = {}
+    session.streamsRef.current = {}
     deps.setOthers([])
     deps.setStreams({})
     deps.setPeerStates({})
@@ -95,9 +84,9 @@ export const useRoomConnection = (roomUrl: string, deps: RoomConnectionDeps) => 
 
         // Reuse the player across rooms so name/avatar/audio/status carry over;
         // create it on first load. Same object identity (other code holds the ref).
-        if (deps.me.current) deps.me.current.coord = spawn
-        else deps.me.current = { id: deps.meId.current, name: deps.meName.current, coord: spawn }
-        const player = deps.me.current
+        if (session.me.current) session.me.current.coord = spawn
+        else session.me.current = { id: session.meId.current, name: session.meName.current, coord: spawn }
+        const player = session.me.current
 
         deps.applyConfig(loaded)
         deps.setMyCoord(spawn)
@@ -107,26 +96,26 @@ export const useRoomConnection = (roomUrl: string, deps: RoomConnectionDeps) => 
         }
 
         const backend = createBackend(roomChannel(roomUrl))
-        deps.backendRef.current = backend
-        deps.pingerRef.current = createPinger()
+        session.backendRef.current = backend
+        session.pingerRef.current = createPinger()
         unsubs.push(backend.onPlayers((o) => !cancelled && deps.setOthers(o)))
         unsubs.push(backend.onStatus((s) => !cancelled && deps.setStatus(s)))
         unsubs.push(backend.onVoice((from, state) => !cancelled && deps.updateVoice(from, state)))
 
         const mesh = createMeshAudio(player.id, backend)
-        deps.meshRef.current = mesh
+        session.meshRef.current = mesh
         // Carry an already-granted mic into the new room's mesh (no re-prompt).
-        if (deps.micRef.current) mesh.setMic(deps.micRef.current)
+        if (session.micRef.current) mesh.setMic(session.micRef.current)
         unsubs.push(
           mesh.onRemoteStream((id, s) => {
             if (cancelled) return
-            if (s) deps.streamsRef.current = { ...deps.streamsRef.current, [id]: s }
+            if (s) session.streamsRef.current = { ...session.streamsRef.current, [id]: s }
             else {
-              const next = { ...deps.streamsRef.current }
+              const next = { ...session.streamsRef.current }
               delete next[id]
-              deps.streamsRef.current = next
+              session.streamsRef.current = next
             }
-            deps.setStreams(deps.streamsRef.current)
+            deps.setStreams(session.streamsRef.current)
           }),
         )
         unsubs.push(mesh.onPeerStates((states) => !cancelled && deps.setPeerStates(states)))
@@ -143,12 +132,12 @@ export const useRoomConnection = (roomUrl: string, deps: RoomConnectionDeps) => 
       cancelled = true
       for (const u of unsubs) u()
       deps.cancelTravel()
-      deps.pingerRef.current?.close()
-      deps.pingerRef.current = null
-      deps.meshRef.current?.close()
-      deps.meshRef.current = null
-      deps.backendRef.current?.leave()
-      deps.backendRef.current = null
+      session.pingerRef.current?.close()
+      session.pingerRef.current = null
+      session.meshRef.current?.close()
+      session.meshRef.current = null
+      session.backendRef.current?.leave()
+      session.backendRef.current = null
       // mic + meter intentionally persist across room switches (carried into the
       // next room's mesh); they're released on unmount by use-audio-controls.
     }

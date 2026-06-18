@@ -6,7 +6,7 @@
 
 import { useEffect, useRef } from 'haunted'
 import type { Cell, Coord, Room, Player } from '../core/types'
-import type { RealtimeBackend } from '../shell/realtime'
+import type { Session } from '../shell/session'
 import { cellAt, coordKey, coordsEqual, nearestFreeCell } from '../core/room'
 import { applyDelta, canEnter, keyToDelta, STEP_MS } from '../core/movement'
 import { findPath } from '../core/pathfind'
@@ -23,15 +23,14 @@ export interface MovementDeps {
   mapMode: boolean
   roomRef: { current: Room | null }
   othersRef: { current: Player[] }
-  me: { current: Player | null }
-  meId: { current: string }
-  backendRef: { current: RealtimeBackend | null }
+  session: Session
   setMyCoord: (c: Coord) => void
   setEditCell: (c: Cell | null) => void
 }
 
 export const useMovement = (deps: MovementDeps) => {
-  const { myCoord, others, mapMode, roomRef, othersRef, me, meId, backendRef, setMyCoord, setEditCell } = deps
+  const { myCoord, others, mapMode, roomRef, othersRef, setMyCoord, setEditCell } = deps
+  const { me, meId, backendRef } = deps.session
   const travelRef = useRef<{ timer: number | null }>({ timer: null })
 
   const cancelTravel = () => {

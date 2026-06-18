@@ -5,25 +5,14 @@
 // (carried across room switches) and are released here on unmount.
 
 import { useState, useRef, useEffect } from 'haunted'
-import type { Player } from '../core/types'
-import type { RealtimeBackend, VoiceState } from '../shell/realtime'
-import type { MeshAudio } from '../shell/webrtc'
+import type { VoiceState } from '../shell/realtime'
+import type { Session } from '../shell/session'
 import { createMeter } from '../shell/meter'
-import type { Meter } from '../shell/meter'
 import { gateTransition, initialGate } from '../core/fsm/audio-gate'
 import type { AudioGateEvent, AudioGateState } from '../core/fsm/audio-gate'
 
-export interface AudioControlsDeps {
-  me: { current: Player | null }
-  meId: { current: string }
-  backendRef: { current: RealtimeBackend | null }
-  meshRef: { current: MeshAudio | null }
-  micRef: { current: MediaStream | null }
-  meterRef: { current: Meter | null }
-}
-
-export const useAudioControls = (deps: AudioControlsDeps) => {
-  const { me, meId, backendRef, meshRef, micRef, meterRef } = deps
+export const useAudioControls = (session: Session) => {
+  const { me, meId, backendRef, meshRef, micRef, meterRef } = session
   const [gate, setGate] = useState<AudioGateState>(initialGate)
   const [muted, setMuted] = useState(false)
   const [voices, setVoices] = useState<Record<string, VoiceState>>({})

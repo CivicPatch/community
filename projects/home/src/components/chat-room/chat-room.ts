@@ -43,6 +43,7 @@ import { STYLE } from './chat-room.styles'
 import type { RealtimeBackend, VoiceState } from './shell/realtime'
 import type { MeshAudio } from './shell/webrtc'
 import type { Meter } from './shell/meter'
+import type { Session } from './shell/session'
 import type { ConnStatus } from './core/fsm/session'
 import type { PeerState } from './core/fsm/peer'
 
@@ -143,6 +144,10 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
   const roomRef = useRef<Room | null>(null)
   const othersRef = useRef<Player[]>([])
 
+  // Bundle the shared per-tab handles once (see shell/session.ts) — passed to the
+  // hooks that need several of them, instead of threading each ref separately.
+  const session: Session = { meId, meName, me, backendRef, meshRef, meterRef, pingerRef, micRef, streamsRef }
+
   roomRef.current = room
   othersRef.current = others
 
@@ -153,22 +158,13 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
     mapMode,
     roomRef,
     othersRef,
-    me,
-    meId,
-    backendRef,
+    session,
     setMyCoord,
     setEditCell,
   })
 
   // Voice/mic + audio-gate FSM (see hooks/use-audio-controls.ts).
-  const { gate, voices, muted, updateVoice, dispatchGate, toggleMute } = useAudioControls({
-    me,
-    meId,
-    backendRef,
-    meshRef,
-    micRef,
-    meterRef,
-  })
+  const { gate, voices, muted, updateVoice, dispatchGate, toggleMute } = useAudioControls(session)
 
   // Adopt a config and rebuild everything derived from it (used on load and on edits).
   const applyConfig = (c: RoomConfig) => {
@@ -234,18 +230,9 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
     if (config) navigator.clipboard?.writeText(serializeConfig(config))
   }
 
-  // Backend + mesh + pinger lifecycle, run once per config-url (see
-  // hooks/use-room-connection.ts). Refs/setters are owned here and passed in.
-  useRoomConnection(roomUrl, {
-    meId,
-    meName,
-    me,
-    backendRef,
-    meshRef,
-    pingerRef,
-    meterRef,
-    micRef,
-    streamsRef,
+  // Backend + mesh + pinger lifecycle, re-run per room (see hooks/use-room-connection.ts).
+  // `session` carries the shared handles; the rest is connection-specific state + setters.
+  useRoomConnection(roomUrl, session, {
     arrivalSpawnRef,
     joinedRef,
     applyConfig,
