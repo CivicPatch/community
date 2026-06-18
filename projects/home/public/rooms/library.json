@@ -12,7 +12,7 @@
     { "coord": { "col": 9, "row": 0 }, "color": "#2a241e", "char": "R" },
     { "coord": { "col": 10, "row": 0 }, "color": "#2a241e", "char": "Y" },
 
-    { "coord": { "col": 0, "row": 2 }, "color": "#3a2f25", "door": { "to": "/rooms/home.json", "spawn": { "col": 6, "row": 5 }, "label": "Home" }, "description": { "title": "🚪 Home", "body": "Step back to the Home room." } },
+    { "coord": { "col": 0, "row": 2 }, "color": "#3a2f25", "door": { "to": "/rooms/home.json", "spawn": { "col": 1, "row": 10 }, "label": "Home" }, "description": { "title": "🚪 Home", "body": "Step back to the Home room." } },
     { "coord": { "col": 1, "row": 4 }, "char": "🪴" },
 
     { "coord": { "col": 2, "row": 1 }, "walkable": false, "color": "#3a2f25", "char": "📚" },

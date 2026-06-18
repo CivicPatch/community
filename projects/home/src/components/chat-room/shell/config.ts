@@ -2,10 +2,9 @@
 // client-side, so it's fine in the static bundle. Leave either value empty to
 // fall back to the local BroadcastChannel fake backend (offline dev / tests).
 
-// Where the published room lives — the "Edit on GitHub" link opens this file's
-// editor; the user pastes the exported JSON and "Propose changes" opens a PR.
-export const GITHUB_EDIT_URL =
-  'https://github.com/CivicPatch/community/edit/main/projects/home/public/rooms/home.json'
+// Base of the "Edit on GitHub" link; the CURRENT room's path (e.g. /rooms/garden.json)
+// is appended, so the PR edits whichever room you're in — not always home.json.
+export const GITHUB_EDIT_BASE = 'https://github.com/CivicPatch/community/edit/main/projects/home/public'
 
 export const SUPABASE_URL = 'https://vclvvgolzzebiojevjsx.supabase.co'
 // gitleaks:allow — publishable key is public by design (ships in the client bundle)

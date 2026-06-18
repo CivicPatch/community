@@ -1,0 +1,47 @@
+{
+  "columns": 14,
+  "rows": 10,
+  "spawn": { "col": 1, "row": 1 },
+  "maxHuddleCells": 7,
+  "cells": [
+    { "coord": { "col": 4, "row": 0 }, "color": "#2a3a24", "char": "G" },
+    { "coord": { "col": 5, "row": 0 }, "color": "#2a3a24", "char": "A" },
+    { "coord": { "col": 6, "row": 0 }, "color": "#2a3a24", "char": "R" },
+    { "coord": { "col": 7, "row": 0 }, "color": "#2a3a24", "char": "D" },
+    { "coord": { "col": 8, "row": 0 }, "color": "#2a3a24", "char": "E" },
+    { "coord": { "col": 9, "row": 0 }, "color": "#2a3a24", "char": "N" },
+
+    { "coord": { "col": 0, "row": 1 }, "color": "#2a3a24", "door": { "to": "/rooms/home.json", "spawn": { "col": 8, "row": 16 }, "label": "Home" }, "description": { "title": "🚪 Home", "body": "Back to the main room." } },
+
+    { "coord": { "col": 2, "row": 1 }, "walkable": false, "char": "🌳" },
+    { "coord": { "col": 12, "row": 1 }, "walkable": false, "char": "🌳" },
+    { "coord": { "col": 13, "row": 5 }, "walkable": false, "char": "🌳" },
+    { "coord": { "col": 0, "row": 8 }, "walkable": false, "char": "🌳" },
+    { "coord": { "col": 13, "row": 8 }, "walkable": false, "char": "🌳" },
+
+    { "coord": { "col": 3, "row": 3 }, "char": "🌻" },
+    { "coord": { "col": 10, "row": 3 }, "char": "🌷" },
+    { "coord": { "col": 2, "row": 7 }, "char": "🌷" },
+    { "coord": { "col": 11, "row": 7 }, "char": "🌻" },
+
+    { "coord": { "col": 11, "row": 5 }, "char": "🧘", "color": "#5a7a6a", "radio": { "url": "https://ice1.somafm.com/dronezone-128-mp3", "label": "Drone Zone" }, "description": { "title": "🧘 Drone Zone", "body": "Atmospheric ambient textures from SomaFM — sit a while; step off the tile to stop.", "links": [{ "url": "https://somafm.com/player24/station/dronezone", "label": "Listen on SomaFM ↗" }] } },
+
+    { "coord": { "col": 6, "row": 3 }, "color": "#3a5a2a" },
+    { "coord": { "col": 7, "row": 3 }, "color": "#3a5a2a" },
+    { "coord": { "col": 5, "row": 4 }, "color": "#3a5a2a" },
+    { "coord": { "col": 8, "row": 4 }, "color": "#3a5a2a" },
+    { "coord": { "col": 5, "row": 5 }, "color": "#3a5a2a" },
+    { "coord": { "col": 8, "row": 5 }, "color": "#3a5a2a" },
+    { "coord": { "col": 5, "row": 6 }, "color": "#3a5a2a" },
+    { "coord": { "col": 8, "row": 6 }, "color": "#3a5a2a" },
+    { "coord": { "col": 6, "row": 7 }, "color": "#3a5a2a" },
+    { "coord": { "col": 7, "row": 7 }, "color": "#3a5a2a" },
+
+    { "coord": { "col": 6, "row": 4 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 7, "row": 4 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 6, "row": 5 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 7, "row": 5 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 6, "row": 6 }, "audio": true, "color": "#4a3e30" },
+    { "coord": { "col": 7, "row": 6 }, "audio": true, "color": "#4a3e30" }
+  ]
+}
