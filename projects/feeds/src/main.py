@@ -1,7 +1,8 @@
 import os
+import html
 from pathlib import Path
 from typing import cast, Any
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, ValidationError
 from enum import Enum
 import httpx
 from datetime import datetime, timezone 
@@ -59,7 +60,7 @@ class FeedEntry(BaseModel):
     type: FeedType
     id: str
     title: str
-    link: str
+    link: HttpUrl
     updated: datetime
     image: HttpUrl | None = None
 
@@ -79,12 +80,18 @@ def get_topics() -> dict[str, Topic]:
     }
     return topics_by_name
 
+def to_text(s: str) -> str:
+    # Feed titles are untrusted, and some feeds (e.g. Mastodon) put an HTML post body
+    # where a title goes. A title is plain text: strip all tags and decode entities so the
+    # view can render it as escaped text — no markup, no nested links.
+    return html.unescape(nh3.clean(s, tags=set())).strip()
+
 def to_entry(entry: dict[str, Any]):  # pyright: ignore[reportExplicitAny]
     when = entry.get("updated_parsed") or entry.get("published_parsed")   # struct_time
     title = entry.get("title") or entry.get("summary") or "(untitled)"
     return {
         "id":    entry.get("id") or entry.get("link"),
-        "title": nh3.clean(title),
+        "title": to_text(title),
         "link":  entry.get("link"),
         "updated": datetime.fromtimestamp(timegm(when), tz=timezone.utc) if when else None
     }
@@ -101,14 +108,21 @@ def fetch_feed_entries(name: str, feed_type: FeedType, url: str):
     feed_image = feed.get("image") or {}
     image: str | None = feed_image.get("href")
 
-    entries = [FeedEntry.model_validate({
-        **entry, 
-        "name": name, 
-        "type": feed_type,
-        "image": image
-    }) for entry in entries]
+    validated: list[FeedEntry] = []
+    for entry in entries:
+        try:
+            validated.append(FeedEntry.model_validate({
+                **entry,
+                "name": name,
+                "type": feed_type,
+                "image": image,
+            }))
+        except ValidationError as err:
+            # untrusted feed: skip a bad entry (e.g. unsafe link scheme) rather than
+            # failing the whole run.
+            print(f"skipping invalid entry from {name}: {err}")
 
-    return entries
+    return validated
 
 def entries_for_topic(topic: Topic) -> list[FeedEntry]:
     return [
