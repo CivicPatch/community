@@ -19,9 +19,9 @@ import { bubbleVisible, rankRoster } from './core/presence'
 import { buildHuddles, peersInHuddle, huddleOf } from './core/huddles'
 import { describeCell } from './core/describe'
 import { validateRoom } from './core/validate'
-import { readableInk } from './core/color'
-import { renderCellGlyph } from './render/cell'
-import { popover } from './render/popover'
+import { renderCells } from './render/cells'
+import { makeToken } from './render/token'
+import { statusBar } from './render/status'
 import { makeRosterRow } from './render/roster'
 import { makeRenderOverlay } from './render/modals'
 import type { Overlay } from './render/modals'
@@ -40,7 +40,7 @@ import { useViewport } from './hooks/use-viewport'
 import { useMovement } from './hooks/use-movement'
 import { useAudioControls } from './hooks/use-audio-controls'
 import { STYLE } from './chat-room.styles'
-import type { RealtimeBackend, VoiceState } from './shell/realtime'
+import type { RealtimeBackend } from './shell/realtime'
 import type { MeshAudio } from './shell/webrtc'
 import type { Meter } from './shell/meter'
 import type { Session } from './shell/session'
@@ -319,108 +319,9 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
   // describeCell supplies a role-based default when the tile has no authored text.
   const description = myCoord ? describeCell(cellAt(room, myCoord)) : undefined
 
-  const cells = []
-  for (let row = 0; row < room.rows; row++) {
-    for (let col = 0; col < room.columns; col++) {
-      const coord = { col, row }
-      const cell = cellAt(room, coord)
-      const isAudioCell = cell?.audio === true
-      const isRadioCell = !!cell?.radio
-      const link = cell?.link ?? null
-      const wall = cell?.walkable === false
-      const hasDesc = !!cell?.description
-      const activeHuddle = isAudioCell && myHuddle !== null && huddleOf(huddles, coord) === myHuddle
-      const classes = ['cr-cell']
-      if (isAudioCell) classes.push('cr-audio')
-      if (isRadioCell) classes.push('cr-radio')
-      if (activeHuddle) classes.push('cr-active-huddle')
-      if (link) classes.push('cr-link')
-      if (hasDesc) classes.push('cr-has-desc')
-      if (wall) classes.push('cr-wall')
-      // compose the visual background: colour fill + image, both optional. A
-      // user-set colour doesn't track the theme, so derive a legible glyph colour
-      // from it (else fall back to the theme text colour).
-      const ink = cell?.color ? readableInk(cell.color) : undefined
-      const bg = [
-        cell?.color ? `background-color:${cell.color}` : '',
-        ink ? `color:${ink}` : '',
-        cell?.image ? `background-image:url(${cell.image});background-size:cover;background-position:center` : '',
-      ]
-        .filter(Boolean)
-        .join(';')
-      // hover/focus preview popover (title + body), pure CSS — no JS state. The
-      // FULL description (with links) shows in the side panel when you STAND here.
-      const desc = cell?.description
-      // shown via the cell's CSS :hover (no `open`); edge-aware placement from col/row
-      const pop = hasDesc
-        ? popover({
-            title: desc?.title,
-            body: desc?.body,
-            below: row === 0,
-            align: popAlign(col),
-          })
-        : ''
-      cells.push(
-        link
-          ? // a real anchor: native new-tab, middle-click, screen-reader "link", no popup-blocker
-            html`<a
-              class=${classes.join(' ')}
-              style=${bg}
-              href=${link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label=${`Open link: ${link.label ?? link.url}`}
-              @click=${(e: Event) => {
-                if (mapMode) {
-                  e.preventDefault() // edit the tile instead of following the link
-                  onCellClick(coord)
-                }
-              }}
-              >${renderCellGlyph(cell)}${pop}</a
-            >`
-          : html`<button
-              class=${classes.join(' ')}
-              style=${bg}
-              ?disabled=${wall}
-              tabindex="-1"
-              title=${`${col},${row}`}
-              @click=${() => onCellClick(coord)}
-            >
-              ${renderCellGlyph(cell)}${pop}
-            </button>`,
-      )
-    }
-  }
+  const cells = renderCells({ room, huddles, myHuddle, mapMode, popAlign, onCellClick })
 
-  const token = (
-    c: Coord,
-    name: string,
-    avatar: string | undefined,
-    isMe: boolean,
-    enabled: boolean,
-    inHuddle: boolean,
-    voice?: VoiceState,
-    bubble?: string,
-  ) => {
-    const speaking = voice?.speaking ?? false
-    const shake = voice?.bucket ?? 0
-    const isMuted = voice?.muted ?? false
-    const classes = ['cr-token']
-    if (isMe) classes.push('cr-me')
-    if (enabled) classes.push('cr-enabled') // green ring — has enabled audio (everyone sees it)
-    if (speaking && inHuddle) classes.push('cr-speaking') // white ring — talking in your huddle
-    if (speaking) classes.push('cr-wiggling') // shake — anyone talking, room-wide
-    return html`
-      <div class=${classes.join(' ')} style="--col:${c.col};--row:${c.row};--shake:${shake}">
-        ${bubble
-          ? popover({ body: bubble, open: true, below: c.row === 0, align: popAlign(c.col), extra: ['cr-pop-raise'] })
-          : ''}
-        <span class="cr-token-avatar" aria-hidden="true">${avatar || '●'}</span>
-        <span class="cr-token-name">${name}</span>
-        ${isMuted ? html`<span class="cr-token-mute" aria-hidden="true">🔇</span>` : ''}
-      </div>
-    `
-  }
+  const token = makeToken({ popAlign })
 
   // Roster row renderer — closes over current peer/menu state (see render/roster.ts).
   const rosterRow = makeRosterRow({
@@ -652,22 +553,16 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
             ></audio>`,
         )}
       </div>
-      <div class="cr-status">
-        <span class="cr-badge" data-status=${status}>${status}</span>
-        <strong>${meName.current}</strong>
-        ${myCoord ? html` @ ${myCoord.col},${myCoord.row}` : ''} ·
-        ${gate === 'on'
-          ? myHuddle === null
-            ? 'step onto an audio tile to talk'
-            : huddlePeers.length === 0
-              ? 'no one else in this huddle yet'
-              : `talking with ${connectedCount}`
-          : myHuddle === null
-            ? 'not in a huddle'
-            : `huddle #${myHuddle} — ${huddlePeers.length + 1} here`}
-        · ${others.length} other${others.length === 1 ? '' : 's'} online
-        <div class="cr-hint">click the room, then move with WASD / arrows or click a cell</div>
-      </div>
+      ${statusBar({
+        status,
+        name: meName.current,
+        myCoord,
+        audioOn: gate === 'on',
+        myHuddle,
+        huddleCount: huddlePeers.length,
+        connectedCount,
+        othersCount: others.length,
+      })}
       ${errors.length
         ? html`<ul class="cr-errors">
             ${errors.map((e) => html`<li>${e}</li>`)}
