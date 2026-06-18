@@ -5,7 +5,7 @@
   description: Elected officials' contact info scraper (at the local level).
   meta:
     - label: Contact
-      content: "<a href='mailto:michelle@civicpatch.org'>michelle@civicpatch.org</a>"
+      content: "<a href='mailto:hello@civicpatch.org'>hello@civicpatch.org</a>"
   feeds:
     - type: "commit_event"
       url: https://github.com/CivicPatch/civicpatch-tools/commits.atom

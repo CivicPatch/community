@@ -1,0 +1,23 @@
+# Browser integration tests in real WebKit (the engine behind iOS Safari), for
+# machines without Playwright's browsers installed locally. Builds the production
+# bundle, serves it, and runs tools/browser/tests/*.spec.ts against it.
+#
+# Run (from projects/home/tools/browser/):
+#   docker compose run --rm tests
+#
+# Locally with browsers installed you don't need this — just `npm run test:e2e`
+# from projects/home (after `npx playwright install webkit`).
+name: home-browser
+
+services:
+  tests:
+    image: mcr.microsoft.com/playwright:v1.50.0-noble
+    user: root
+    working_dir: /app
+    volumes:
+      - ../..:/app # projects/home, read-write: `npm run build` prerenders into src/
+      - home_browser_node_modules:/app/node_modules # container deps, off the host
+    command: sh -c "npm ci && npx playwright test -c tools/browser/playwright.config.ts"
+
+volumes:
+  home_browser_node_modules:

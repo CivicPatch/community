@@ -4,18 +4,20 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy">
     <title>home</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="./src/index.css" />
-    <script type="module" src="/src/components/topic-list.ts"></script>
-    <script type="module" src="/src/components/onboarding-steps.ts"></script>
+    <!-- optional progressive enhancement: friendly relative times. With no JS the feed
+         still shows absolute dates. -->
+    <script type="module" src="/src/enhance-times.ts"></script>
   </head>
   <body>
     <main class="content">
       <nav class="topnav"><a href="/" aria-current="page">home</a><a href="/hangout/">hangout</a></nav>
-      <topic-list></topic-list>
+      <!-- feed prerendered from public/feeds.json at build (see scripts/prerender.mjs);
+           the <topic-list> wrapper is kept only for its CSS. -->
+      <topic-list><!--feeds--></topic-list>
       <!--<iframe src="https://calendar.google.com/calendar/embed?src=fd77fc684546b1bb20719c8aee5ad9d43397413b2f3695b1c2c3ebe10178b65d%40group.calendar.google.com&ctz=America%2FLos_Angeles" style="border: 0" width="800" height="600" frameborder="0" scrolling="no"></iframe>-->
       <section>
         <h2>Links</h2>
@@ -25,7 +27,27 @@
         </ul>
       <hr />
       </section>
-      <onboarding-steps></onboarding-steps>
+      <h2>Onboarding</h2>
+      <ol class="onboarding">
+        <li class="onboarding-step">
+          <h3 class="onboarding-step-title">Join the community</h3>
+          <p class="onboarding-step-body">Create an account at Unified.</p>
+        </li>
+        <li class="onboarding-step">
+          <h3 class="onboarding-step-title">Add your project to the member directory</h3>
+          <p class="onboarding-step-body">
+            Fill out this <a href="https://forms.gle/yJ8auo39KMPMywgm6" target="_blank">form</a>.
+          </p>
+        </li>
+        <li class="onboarding-step">
+          <h3 class="onboarding-step-title">Add your project feeds</h3>
+          <p class="onboarding-step-body">
+            Update this
+            <a href="https://github.com/CivicPatch/community/blob/main/projects/feeds/feeds.yaml" target="_blank">yaml file</a>.
+            Reach out to the community to get it merged.
+          </p>
+        </li>
+      </ol>
     </main>
   </body>
 </html>
