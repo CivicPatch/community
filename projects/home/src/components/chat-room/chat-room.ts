@@ -343,6 +343,7 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
   const renderOverlay = makeRenderOverlay({
     overlay,
     config,
+    roomPath: roomUrl,
     closeOverlay,
     copyJson,
     editConfig,

@@ -10,7 +10,7 @@ import { html } from 'lit'
 import { ref } from 'lit/directives/ref.js'
 import type { Cell, RoomConfig } from '../core/types'
 import { serializeConfig, setRoomMeta } from '../core/edit'
-import { GITHUB_EDIT_URL } from '../shell/config'
+import { GITHUB_EDIT_BASE } from '../shell/config'
 
 export type Overlay =
   | { kind: 'none' }
@@ -29,6 +29,8 @@ const inputValue = (e: Event) => (e.target as HTMLInputElement).value
 export interface OverlayDeps {
   overlay: Overlay
   config: RoomConfig | null
+  /** the current room's file path (e.g. /rooms/garden.json) — for the Edit-on-GitHub link */
+  roomPath: string
   closeOverlay: () => void
   copyJson: () => void
   editConfig: (c: RoomConfig) => void
@@ -68,12 +70,12 @@ export const makeRenderOverlay = (deps: OverlayDeps) => {
     <h3 class="cr-modal-title">Map JSON</h3>
     <p class="cr-modal-hint">
       Copy this, then <strong>Edit on GitHub</strong> → paste into
-      <code>public/rooms/home.json</code> → <em>Propose changes</em> (opens a PR).
+      <code>public${deps.roomPath}</code> → <em>Propose changes</em> (opens a PR).
     </p>
     <textarea class="cr-json" readonly .value=${serializeConfig(c)}></textarea>
     <div class="cr-modal-actions">
       <button class="cr-btn" @click=${closeOverlay}>Close</button>
-      <a class="cr-btn" href=${GITHUB_EDIT_URL} target="_blank" rel="noopener noreferrer">
+      <a class="cr-btn" href=${`${GITHUB_EDIT_BASE}${deps.roomPath}`} target="_blank" rel="noopener noreferrer">
         Edit on GitHub ↗
       </a>
       <button class="cr-btn cr-btn-primary" @click=${deps.copyJson}>Copy JSON</button>
