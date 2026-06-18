@@ -36,6 +36,8 @@ import { useMeshRouting } from './hooks/use-mesh-routing'
 import { useMicGate } from './hooks/use-mic-gate'
 import { useRoomConnection } from './hooks/use-room-connection'
 import { useDoor } from './hooks/use-door'
+import { usePip } from './hooks/use-pip'
+import { useOnChange } from './hooks/use-reconnect'
 import { useViewport } from './hooks/use-viewport'
 import { useMovement } from './hooks/use-movement'
 import { useAudioControls } from './hooks/use-audio-controls'
@@ -84,6 +86,10 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
   const [mutedPeers, setMutedPeers] = useState<Set<string>>(new Set())
   const [blockedPeers, setBlocked] = useState<Set<string>>(new Set())
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null)
+  // Bumped on each PiP pop-out/in. Moving the host across documents runs every effect's
+  // cleanup without re-running the effect, so the teardown-on-disconnect hooks (connection,
+  // mic, viewport, page-hide) take this as a dep and reconnect when it changes.
+  const [reconnectNonce, setReconnectNonce] = useState(0)
   // pre-join identity gate: prefill name + avatar from the last session (localStorage),
   // hold them until the user commits
   const [joined, setJoined] = useState(false)
@@ -143,6 +149,7 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
   const joinedRef = useRef(false)
   const roomRef = useRef<Room | null>(null)
   const othersRef = useRef<Player[]>([])
+  const myCoordRef = useRef<Coord | null>(null) // current tile, read when re-anchoring on a pop
 
   // Bundle the shared per-tab handles once (see shell/session.ts) — passed to the
   // hooks that need several of them, instead of threading each ref separately.
@@ -150,6 +157,7 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
 
   roomRef.current = room
   othersRef.current = others
+  myCoordRef.current = myCoord
 
   // Movement: keyboard, click-to-travel, collision tiebreak (see hooks/use-movement.ts).
   const { onKeyDown, onCellClick, cancelTravel } = useMovement({
@@ -164,7 +172,10 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
   })
 
   // Voice/mic + audio-gate FSM (see hooks/use-audio-controls.ts).
-  const { gate, voices, muted, updateVoice, dispatchGate, toggleMute } = useAudioControls(session)
+  const { gate, voices, muted, updateVoice, dispatchGate, toggleMute } = useAudioControls(
+    session,
+    reconnectNonce,
+  )
 
   // Adopt a config and rebuild everything derived from it (used on load and on edits).
   const applyConfig = (c: RoomConfig) => {
@@ -204,10 +215,22 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
   // The grid's scroll viewport — edge arrows, camera-follow, click-to-pan — all from
   // pure geometry in core/camera (see hooks/use-viewport.ts). setBoard is the element
   // ref; pan(dx,dy) is wired to the arrow buttons.
-  const { setBoard, pan } = useViewport(room, myCoord)
+  const { setBoard, pan } = useViewport(room, myCoord, reconnectNonce)
+
+  // Pop the grid into a small, always-on-top window (Chromium only, see hooks/use-pip.ts).
+  const pip = usePip()
+
+  // Each pop-out/in moves the host across documents, tearing down the connection/mic/
+  // viewport effects (haunted runs their cleanups on disconnect but doesn't re-run them).
+  // Re-anchor to the current tile, then bump the nonce so those hooks reconnect — landing
+  // you back where you stood. useOnChange skips the initial mount (the first connect ran).
+  useOnChange(() => {
+    if (myCoordRef.current) arrivalSpawnRef.current = myCoordRef.current
+    setReconnectNonce((n) => n + 1)
+  }, [pip.popped])
 
   // Proactively leave on tab/window close — effect cleanup doesn't run then.
-  usePageHideLeave(backendRef)
+  usePageHideLeave(backendRef, reconnectNonce)
 
   // Esc closes whatever overlay/menu is open.
   useEscToClose(overlay.kind !== 'none' || !!menuOpenFor, () => {
@@ -245,7 +268,7 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
     setStreams,
     setPeerStates,
     setErrors,
-  })
+  }, reconnectNonce)
 
   // Pre-join gate submit: commit the chosen name + avatar onto our player, remember them
   // for next time, then join.
@@ -362,7 +385,7 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
 
   return html`
     ${STYLE}
-    <div class="cr-wrap">
+    <div class="cr-wrap" ${ref(pip.setWrap)}>
       ${draft
         ? html`<div class="cr-draft-banner" role="status">
             <span>📝 You have a map draft, last edited ${formatAgo(draft.savedAt)}.</span>
@@ -404,6 +427,17 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
                   ? 'Mic blocked — retry'
                   : '🔊 Enable audio'}
             </button>`}
+        ${pip.supported
+          ? html`<button
+              class="cr-btn"
+              title=${pip.popped
+                ? 'Return the hangout to this page'
+                : 'Open the hangout in a small, always-on-top window'}
+              @click=${pip.popped ? pip.popIn : pip.popOut}
+            >
+              ${pip.popped ? '⤡ Dock back' : '⤢ Pop out'}
+            </button>`
+          : ''}
       </div>
       <div class="cr-stage">
         <div class="cr-board-wrap">

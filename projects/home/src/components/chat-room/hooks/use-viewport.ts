@@ -7,13 +7,17 @@
 // simplest behaviour that keeps you on screen; no camera "mode" to track.
 
 import { useEffect, useRef } from 'haunted'
+import { useReconnectEffect } from './use-reconnect'
 import type { Coord, Room } from '../core/types'
 import { overflowEdges, followScroll, panScroll } from '../core/camera'
 import type { Box, Scroll, CellRect } from '../core/camera'
 
 const FOLLOW_MARGIN_CELLS = 1.5
 
-export const useViewport = (room: Room | null, myCoord: Coord | null) => {
+// reconnectNonce: bumped on a PiP pop, which moves the board across documents — that runs
+// this effect's cleanup (scroll listener + ResizeObserver removed) without re-running it,
+// so the arrows go dead. Re-running on the nonce re-attaches them.
+export const useViewport = (room: Room | null, myCoord: Coord | null, reconnectNonce: number) => {
   const boardRef = useRef<HTMLElement | null>(null)
   // stable callback ref so lit binds it once (a fresh arrow each render would thrash)
   const setBoard = useRef((el?: Element) => {
@@ -40,21 +44,25 @@ export const useViewport = (room: Room | null, myCoord: Coord | null) => {
     m.el.toggleAttribute('data-right', e.right)
   }
 
-  // Edge arrows: recompute on scroll, on resize, and when the room/grid changes.
-  useEffect(() => {
-    const el = boardRef.current
-    if (!el) return
-    refreshEdges()
-    el.addEventListener('scroll', refreshEdges, { passive: true })
-    const ro = new ResizeObserver(refreshEdges)
-    ro.observe(el)
-    if (el.firstElementChild) ro.observe(el.firstElementChild)
-    return () => {
-      el.removeEventListener('scroll', refreshEdges)
-      ro.disconnect()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room])
+  // Edge arrows: recompute on scroll, on resize, and when the room/grid changes. Wrapped so
+  // the listener + observer re-attach after a PiP pop tears them down (see use-reconnect).
+  useReconnectEffect(
+    () => {
+      const el = boardRef.current
+      if (!el) return
+      refreshEdges()
+      el.addEventListener('scroll', refreshEdges, { passive: true })
+      const ro = new ResizeObserver(refreshEdges)
+      ro.observe(el)
+      if (el.firstElementChild) ro.observe(el.firstElementChild)
+      return () => {
+        el.removeEventListener('scroll', refreshEdges)
+        ro.disconnect()
+      }
+    },
+    [room],
+    reconnectNonce,
+  )
 
   // Camera-follow: keep the avatar in view as it moves.
   useEffect(() => {

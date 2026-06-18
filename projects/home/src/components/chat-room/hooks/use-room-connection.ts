@@ -9,7 +9,7 @@
 // for the mic/meter release on unmount). join() is deferred to the pre-join gate on
 // first load, then re-issued automatically on each subsequent room switch.
 
-import { useEffect } from 'haunted'
+import { useReconnectEffect } from './use-reconnect'
 import type { Coord, RoomConfig, Room, Player } from '../core/types'
 import type { ConnStatus } from '../core/fsm/session'
 import type { PeerState } from '../core/fsm/peer'
@@ -60,8 +60,16 @@ export interface RoomConnectionDeps {
   setErrors: (e: string[]) => void
 }
 
-export const useRoomConnection = (roomUrl: string, session: Session, deps: RoomConnectionDeps) => {
-  useEffect(() => {
+// reconnectNonce: a PiP pop moves the host across documents, running this effect's cleanup
+// (leave the room, close mesh/pinger) without re-running it — so presence silently drops.
+// Bumping the nonce re-runs setup, rejoining the channel and rebuilding the mesh.
+export const useRoomConnection = (
+  roomUrl: string,
+  session: Session,
+  deps: RoomConnectionDeps,
+  reconnectNonce: number,
+) => {
+  useReconnectEffect(() => {
     let cancelled = false
     const unsubs: Array<() => void> = []
 
@@ -141,5 +149,5 @@ export const useRoomConnection = (roomUrl: string, session: Session, deps: RoomC
       // mic + meter intentionally persist across room switches (carried into the
       // next room's mesh); they're released on unmount by use-audio-controls.
     }
-  }, [roomUrl])
+  }, [roomUrl], reconnectNonce)
 }
