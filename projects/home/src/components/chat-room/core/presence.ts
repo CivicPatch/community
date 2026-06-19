@@ -65,7 +65,17 @@ export const rankRoster = (
  *  hover / roster-only. */
 export const BUBBLE_MS = 60_000
 
+/** Final stretch of BUBBLE_MS during which the bubble fades out (rather than vanishing).
+ *  The caller re-renders at BUBBLE_MS - BUBBLE_FADE_MS to apply the fade, then at
+ *  BUBBLE_MS to remove it (see use-status-bubbles). */
+export const BUBBLE_FADE_MS = 700
+
 /** Is a status still "fresh" enough to show as a bubble over the avatar? Pure: the
- *  caller decides WHEN to re-evaluate (one timeout at statusAt + BUBBLE_MS). */
+ *  caller decides WHEN to re-evaluate (see use-status-bubbles' two timeouts per status). */
 export const bubbleVisible = (statusAt: number | undefined, now: number): boolean =>
   statusAt !== undefined && now - statusAt < BUBBLE_MS
+
+/** True for the last BUBBLE_FADE_MS of a visible bubble's life — the caller adds the
+ *  fade-out class so it eases away instead of snapping out. */
+export const bubbleLeaving = (statusAt: number | undefined, now: number): boolean =>
+  statusAt !== undefined && now - statusAt >= BUBBLE_MS - BUBBLE_FADE_MS

@@ -1,10 +1,11 @@
-// Fade bubbles: schedule a single timeout to the soonest status expiry, which bumps
-// `nowMs` to force a re-render so faded bubbles disappear. One timer at a time
-// (cheap), reschedules whenever the roster or the clock changes.
+// Fade bubbles: schedule a single timeout to the soonest upcoming bubble event — either a
+// fade-start (BUBBLE_MS - BUBBLE_FADE_MS, when the fade-out class goes on) or an expiry
+// (BUBBLE_MS, when it's removed) — which bumps `nowMs` to force the re-render that applies
+// it. One timer at a time (cheap), reschedules whenever the roster or the clock changes.
 
 import { useEffect } from 'haunted'
 import type { Player } from '../core/types'
-import { BUBBLE_MS } from '../core/presence'
+import { BUBBLE_MS, BUBBLE_FADE_MS } from '../core/presence'
 
 export const useStatusBubbles = (
   others: Player[],
@@ -18,8 +19,8 @@ export const useStatusBubbles = (
     )
     const now = Date.now()
     const next = stamps
-      .map((t) => t + BUBBLE_MS)
-      .filter((exp) => exp > now)
+      .flatMap((t) => [t + BUBBLE_MS - BUBBLE_FADE_MS, t + BUBBLE_MS])
+      .filter((at) => at > now)
       .sort((a, b) => a - b)[0]
     if (next === undefined) return
     const id = setTimeout(() => setNowMs(Date.now()), next - now)

@@ -45,10 +45,35 @@ export const STYLE = html`
     .cr-side {
       flex: 1 1 300px;
       min-width: 260px;
-      max-width: 420px;
+      /* wide enough for the roster to form two columns (see .cr-roster-list) when there's
+         room beside the grid, but capped so the status box / panels don't sprawl across
+         the whole window — they don't need that much width. */
+      max-width: 560px;
       display: flex;
       flex-direction: column;
       gap: 10px;
+    }
+    /* Narrow viewport: the side panel has wrapped below the board, so let it span the
+       full width instead of staying a fixed ~300px column floating under the grid. */
+    @container (max-width: 560px) {
+      .cr-side {
+        flex-basis: 100%;
+        max-width: none;
+      }
+      /* Stacked layout: the board sits directly above the status composer (the first
+         child of .cr-side). Two changes vs desktop:
+         1. Cap the play area shorter than the desktop 74dvh so the grid and the "set a
+            status" box fit on screen together — watch the room and write without
+            scrolling up-and-down. Pan arrows + camera-follow cover the smaller area.
+         2. Let the board HEIGHT fit the grid (max-height, not a fixed height): the
+            desktop fixed height centers a small room inside it, leaving blank bands
+            above and below. On mobile we'd rather hug the grid and reclaim that space;
+            a too-tall room still caps at --board-h and scrolls. */
+      .cr-board {
+        --board-h: min(58dvh, 760px);
+        height: auto;
+        max-height: var(--board-h);
+      }
     }
     .cr-panel {
       padding: 10px 12px;
@@ -271,6 +296,30 @@ export const STYLE = html`
     .cr-pop--open {
       display: block;
       z-index: 50;
+      animation: cr-pop-in 150ms ease-out;
+    }
+    /* Status bubbles fade in on appear and ease out in their final stretch (the view adds
+       cr-pop-leaving for the last BUBBLE_FADE_MS — keep this duration in sync), instead of
+       snapping. Opacity-only so it composes with every alignment transform. */
+    @keyframes cr-pop-in {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+    .cr-pop-leaving {
+      opacity: 0;
+      transition: opacity 700ms ease-in;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cr-pop--open {
+        animation: none;
+      }
+      .cr-pop-leaving {
+        transition: none;
+      }
     }
     /* extra clearance so a token's status bubble sits above its name label */
     .cr-pop-raise {
@@ -426,6 +475,30 @@ export const STYLE = html`
       background: transparent;
       color: var(--cr-text);
     }
+    /* one-tap reactions: each posts a short ephemeral status (the fading bubble) */
+    .cr-reactions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .cr-react {
+      flex: 0 0 auto;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--cr-border);
+      background: var(--cr-surface);
+      font-size: 16px;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+    .cr-react:hover {
+      background: var(--cr-cell-hover);
+    }
+    .cr-react:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--cr-accent);
+    }
     .cr-roster-head {
       margin: 8px 0 2px;
       font-size: 11px;
@@ -435,11 +508,14 @@ export const STYLE = html`
       color: var(--cr-dim);
     }
     .cr-roster-saying {
-      flex: 1 1 60px;
+      /* inline beside the fixed-width name column: starts at a consistent x (aligned)
+         and fills the rest of the row, so a wide (full-width) roster leaves no blank
+         gap on the right. Long statuses wrap within this column rather than clipping. */
+      flex: 1 1 auto;
       min-width: 0;
       font-size: 12px;
       opacity: 0.75;
-      overflow-wrap: anywhere; /* wrap long statuses instead of clipping */
+      overflow-wrap: anywhere;
     }
     /* inline "more" badge → opens the full status in a modal */
     .cr-roster-more {
@@ -545,7 +621,7 @@ export const STYLE = html`
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 1rem;
+      padding: 16px;
     }
     .cr-modal {
       width: min(100%, 360px);
@@ -768,9 +844,14 @@ export const STYLE = html`
       list-style: none;
       margin: 0;
       padding: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
+      /* responsive columns: a single stack in the narrow desktop sidebar (one track
+         fits), flowing into 2+ columns once the section is full-width (e.g. stacked
+         below the board on mobile). Fills the horizontal space instead of leaving the
+         whole right side blank, and shortens the list vertically. auto-fit so the
+         tracks stretch to the edges rather than leaving empty trailing columns. */
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2px 16px;
     }
     .cr-roster-item {
       display: flex;
@@ -790,7 +871,9 @@ export const STYLE = html`
       text-decoration: line-through;
     }
     .cr-roster-name {
-      flex: 1 1 auto;
+      /* fixed column so the status beside it starts at the same x on every row
+         (aligned like a table); longer names ellipsize rather than push the column. */
+      flex: 0 0 84px;
       font-size: 13px;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -809,7 +892,7 @@ export const STYLE = html`
       flex-basis: 100%;
       display: flex;
       gap: 6px;
-      padding-left: 17px; /* line up under the name, past the status dot */
+      padding-left: 28px; /* line up under the name (avatar 22px + row gap 6px) */
     }
     .cr-visually-hidden {
       position: absolute;
