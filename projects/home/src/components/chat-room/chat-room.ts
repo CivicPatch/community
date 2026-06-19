@@ -15,7 +15,7 @@ import { loadIdentity, saveIdentity } from './shell/identity'
 import { loadSoundPrefs, saveSoundPrefs } from './shell/sound-prefs'
 import type { SoundPrefs } from './shell/sound-prefs'
 import type { Pinger } from './shell/ping'
-import { bubbleVisible, rankRoster } from './core/presence'
+import { bubbleVisible, bubbleLeaving, rankRoster } from './core/presence'
 import { buildHuddles, peersInHuddle, huddleOf } from './core/huddles'
 import { describeCell } from './core/describe'
 import { validateRoom } from './core/validate'
@@ -50,6 +50,10 @@ import type { ConnStatus } from './core/fsm/session'
 import type { PeerState } from './core/fsm/peer'
 
 const inputValue = (e: Event) => (e.target as HTMLInputElement).value
+
+// One-tap reactions: each posts a short, ephemeral status — the same fading bubble as a
+// typed status, so there's nothing extra to store or moderate.
+const REACTIONS = ['👋', '👍', '🎉', '❤️', '😂', '❓']
 
 
 // "5 minutes ago" style label for the draft's last-edited time
@@ -300,6 +304,13 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
     if (!me.current) return
     const text = statusDraft.trim()
     if ((me.current.status ?? '') === text) return
+    postStatus(text)
+  }
+
+  // Set + broadcast a status now (no dedup, so a reaction can be re-fired to refresh the
+  // bubble). commitStatus dedups before calling this; reactions call it directly.
+  const postStatus = (text: string) => {
+    if (!me.current) return
     const at = Date.now()
     me.current.status = text
     me.current.statusAt = at
@@ -343,6 +354,13 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
   const cells = renderCells({ room, huddles, myHuddle, mapMode, popAlign, onCellClick })
 
   const token = makeToken({ popAlign })
+
+  // A fresh status shows as a bubble; in its final stretch it's marked leaving so the view
+  // fades it out instead of snapping it away (see core/presence + the cr-pop-leaving CSS).
+  const bubbleOf = (status?: string, statusAt?: number) =>
+    status && bubbleVisible(statusAt, nowMs)
+      ? { text: status, leaving: bubbleLeaving(statusAt, nowMs) }
+      : undefined
 
   // Roster row renderer — closes over current peer/menu state (see render/roster.ts).
   const rosterRow = makeRosterRow({
@@ -476,7 +494,7 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
                   p.audioEnabled ?? false,
                   myHuddle !== null && huddleOf(huddles, p.coord) === myHuddle,
                   voices[p.id],
-                  p.status && bubbleVisible(p.statusAt, nowMs) ? p.status : undefined,
+                  bubbleOf(p.status, p.statusAt),
                 ),
             )}
             ${myCoord
@@ -488,9 +506,7 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
                   gate === 'on',
                   myHuddle !== null,
                   voices[meId.current],
-                  me.current?.status && bubbleVisible(me.current?.statusAt, nowMs)
-                    ? me.current.status
-                    : undefined,
+                  bubbleOf(me.current?.status, me.current?.statusAt),
                 )
               : ''}
           </div>
@@ -524,6 +540,17 @@ const ChatRoom = ({ 'config-url': configUrl = '/rooms/home.json' }: ChatRoomProp
                 }}
                 @blur=${commitStatus}
               ></textarea>
+              <div class="cr-reactions">
+                ${REACTIONS.map(
+                  (emoji) => html`<button
+                    class="cr-react"
+                    title=${`React ${emoji}`}
+                    @click=${() => postStatus(emoji)}
+                  >
+                    ${emoji}
+                  </button>`,
+                )}
+              </div>
             </section>`
           : ''}
         <aside class="cr-panel" aria-live="polite" aria-label="Tile details">

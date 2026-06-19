@@ -21,7 +21,7 @@ export const makeToken =
     enabled: boolean,
     inHuddle: boolean,
     voice?: VoiceState,
-    bubble?: string,
+    bubble?: { text: string; leaving: boolean },
   ) => {
     const speaking = voice?.speaking ?? false
     const shake = voice?.bucket ?? 0
@@ -34,7 +34,14 @@ export const makeToken =
     return html`
       <div class=${classes.join(' ')} style="--col:${c.col};--row:${c.row};--shake:${shake}">
         ${bubble
-          ? popover({ body: bubble, open: true, below: c.row === 0, align: popAlign(c.col), extra: ['cr-pop-raise'] })
+          ? popover({
+              body: bubble.text,
+              open: true,
+              leaving: bubble.leaving,
+              below: c.row === 0,
+              align: popAlign(c.col),
+              extra: ['cr-pop-raise'],
+            })
           : ''}
         <span class="cr-token-avatar" aria-hidden="true">${avatar || '●'}</span>
         <span class="cr-token-name">${name}</span>

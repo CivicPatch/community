@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUBBLE_MS, bubbleVisible, diffPresence, rankRoster } from './presence'
+import { BUBBLE_MS, BUBBLE_FADE_MS, bubbleVisible, bubbleLeaving, diffPresence, rankRoster } from './presence'
 import type { Player, HuddleId } from './types'
 
 const player = (id: string, col: number, row: number, name = id): Player => ({
@@ -25,6 +25,19 @@ describe('bubbleVisible', () => {
 
   it('treats a future statusAt (clock skew) as fresh rather than expired', () => {
     expect(bubbleVisible(2000, 1000)).toBe(true)
+  })
+})
+
+describe('bubbleLeaving', () => {
+  it('is false when no status has been set', () => {
+    expect(bubbleLeaving(undefined, 1000)).toBe(false)
+  })
+
+  it('is false for most of the bubble life, true only in the final fade stretch', () => {
+    expect(bubbleLeaving(1000, 1000)).toBe(false)
+    expect(bubbleLeaving(1000, 1000 + BUBBLE_MS - BUBBLE_FADE_MS - 1)).toBe(false)
+    expect(bubbleLeaving(1000, 1000 + BUBBLE_MS - BUBBLE_FADE_MS)).toBe(true)
+    expect(bubbleLeaving(1000, 1000 + BUBBLE_MS - 1)).toBe(true)
   })
 })
 

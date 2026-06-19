@@ -16,6 +16,8 @@ export interface PopoverOpts {
   below?: boolean
   /** align to an edge instead of centering (near room edges) */
   align?: 'left' | 'right'
+  /** fading out (last stretch of a status bubble's life) — eases opacity to 0 */
+  leaving?: boolean
   /** extra modifier classes (e.g. 'cr-pop-raise' to clear a token's name) */
   extra?: string[]
 }
@@ -23,6 +25,7 @@ export interface PopoverOpts {
 export const popover = (opts: PopoverOpts): TemplateResult => {
   const cls = ['cr-pop']
   if (opts.open) cls.push('cr-pop--open')
+  if (opts.leaving) cls.push('cr-pop-leaving')
   if (opts.below) cls.push('cr-pop-below')
   if (opts.align === 'left') cls.push('cr-pop-left')
   else if (opts.align === 'right') cls.push('cr-pop-right')
